@@ -1,14 +1,8 @@
 # gui_windows.py
 import tkinter as tk
 from tkinter import ttk, messagebox
-# Import all necessary model functions
-from .pantry_model import (
-    get_all_storage_categories, 
-    create_storage_category, 
-    delete_storage_category,
-    get_product_details, 
-    delete_item
-)
+# Import only available model functions
+from .pantry_model import delete_item
 
 # --- Toplevel Window Helper Classes ---
 

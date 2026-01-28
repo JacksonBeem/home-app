@@ -11,7 +11,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from database import init_db_schema
+# from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
 
 
@@ -252,7 +252,7 @@ class PlaceholderPage(ttk.Frame):
 
 
 def main() -> None:
-    init_db_schema()
+    #init_db_schema()
     app = HomeApp()
     app.mainloop()
 

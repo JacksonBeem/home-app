@@ -1,5 +1,6 @@
 # database.py
-import sqlite3
+#import sqlite3
+import psycopg2
 from datetime import datetime
 
 # --- Configuration ---
@@ -7,43 +8,21 @@ DB_NAME = "openfoodfacts_slim.db"
 
 # --- Connection Management ---
 def get_connection():
-    """Returns a new SQLite connection object."""
-    return sqlite3.connect(DB_NAME)
+    # Setup a connection to the PostgreSQL database
+    try:
+        connection = psycopg2.connect(
+            host="localhost",
+            database="homeappdb",
+            user="postgres",
+            password="password",
+            port="5432" # Default PostgreSQL port
+        )
+        return connection
+    except psycopg2.Error as e:
+        print(f"An error occurred: {e}")
+        return None
 
-def init_db_schema():
-    """Initializes the database schema for the pantry items and storage categories."""
-    with get_connection() as conn:
-        c = conn.cursor()
-
-        # items table
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS items (
-                barcode TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                quantity INTEGER NOT NULL DEFAULT 0,
-                last_scanned TEXT
-            )
-        """)
-
-        # storage_categories table for dynamic locations
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS storage_categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE
-            )
-        """)
-
-        # Check and add category_id column if it doesn't exist (Migration logic)
-        c.execute("PRAGMA table_info(items)")
-        cols = [row[1] for row in c.fetchall()]
-        if "category_id" not in cols:
-            # Added FOREIGN KEY for better schema
-            c.execute("ALTER TABLE items ADD COLUMN category_id INTEGER REFERENCES storage_categories(id)") 
-        
-        conn.commit()
-
-
-def _lookup_display_name(conn, barcode):
+def _lookup_display_name(conn, barcode): # not accessed right now
     """
     Builds a human-readable display name from the OpenFoodFacts 'products' table.
     Retries with a leading zero if the barcode is not found.

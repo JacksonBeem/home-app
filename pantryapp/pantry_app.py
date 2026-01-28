@@ -17,13 +17,11 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Callable, Optional
 
-from database import init_db_schema
+# from database import init_db_schema
 from .pantry_model import (
     add_item,
     remove_item,
     get_all_items,
-    get_all_storage_categories,
-    assign_item_to_category,
 )
 from .gui_windows import ItemDetailsWindow, CategoriesWindow, FilterWindow
 
@@ -512,7 +510,6 @@ class PantryApp(tk.Tk):
 
 
 def main() -> None:
-    init_db_schema()
     app = PantryApp()
     app.mainloop()
 
