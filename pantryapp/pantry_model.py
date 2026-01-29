@@ -1,105 +1,106 @@
 import sqlite3
 from datetime import datetime
-from database import get_connection
+from models.item import Item
+from models.item_lookup import ItemLookup
+from sqlalchemy.orm import sessionmaker
+from database import get_connection, engine
+import json
+from urllib.request import urlopen
+from urllib.parse import urlencode
+
+Session = sessionmaker(bind=engine)
+session = Session()
 
 # --- Pantry item operations ---
 
 def add_item(barcode):
     """
     Add or increment item by barcode in the items table.
-    Returns True on success, False if the product barcode is unknown.
+    Returns True on success, if the product barcode is unknown, 
+    another function will need to be used to add it through an api call.
     """
-    with get_connection() as conn:
-        c = conn.cursor()
-        # Find item_lookup_id for this barcode
-        c.execute("SELECT item_lookup_id FROM item_lookup WHERE barcode = %s", (barcode,))
-        row = c.fetchone()
-        if not row:
-            return False
-        item_lookup_id = row[0]
-
-        # Check if item already exists
-        c.execute("SELECT item_id, quantity FROM item WHERE item_lookup_id = %s", (item_lookup_id,))
-        item_row = c.fetchone()
-        if item_row:
-            # Increment quantity
-            new_qty = float(item_row[1]) + 1
-            c.execute("UPDATE item SET quantity = %s WHERE item_id = %s", (new_qty, item_row[0]))
-        else:
-            # Insert new item with quantity 1
-            c.execute("INSERT INTO item (item_lookup_id, quantity) VALUES (%s, %s)", (item_lookup_id, 1))
-        conn.commit()
-        return True
+    item_lookup = session.query(ItemLookup).where(ItemLookup.barcode == barcode).first()
+    if not item_lookup:
+        return False  # Unknown barcode this needs to be update to make api call to add new item_lookup
+    item = session.query(Item).where(Item.item_lookup_id == item_lookup.item_lookup_id).first()
+    if item: # if the item already exists, increment quantity
+        item.quantity += 1
+    else: # else create a new item entry
+        new_item = Item(
+            item_lookup_id=item_lookup.item_lookup_id,
+            quantity=1
+        )
+        session.add(new_item)
+    session.commit()
+    return True
 
 
-def remove_item(barcode):
+def remove_item(barcode, quantity=1):
     """
     Decrement quantity or remove row entirely if quantity hits 0.
     Returns True if an item was found and removed/decremented, False otherwise.
     """
-    with get_connection() as conn:
-        c = conn.cursor()
-        # Find item_lookup_id for this barcode
-        c.execute("SELECT item_lookup_id FROM item_lookup WHERE barcode = %s", (barcode,))
-        row = c.fetchone()
-        if not row:
-            return False
-        item_lookup_id = row[0]
-
-        # Find item
-        c.execute("SELECT item_id, quantity FROM item WHERE item_lookup_id = %s", (item_lookup_id,))
-        item_row = c.fetchone()
-        if not item_row:
-            return False
-        qty = float(item_row[1])
-        if qty > 1:
-            new_qty = qty - 1
-            c.execute("UPDATE item SET quantity = %s WHERE item_id = %s", (new_qty, item_row[0]))
-        else:
-            c.execute("DELETE FROM item WHERE item_id = %s", (item_row[0],))
-        conn.commit()
-        return True
-
+    item_lookup = session.query(ItemLookup).where(ItemLookup.barcode == barcode).first()
+    if not item_lookup:
+        return False  # Unknown barcode. What should we do here?
+    else:
+        item = session.query(Item).where(Item.item_lookup_id == item_lookup.item_lookup_id).first()
+        if item:
+            if item.quantity > quantity:
+                item.quantity -= quantity
+            else:
+                session.delete(item)
+            session.commit()
+            return True
+    return False
 
 def delete_item(barcode):
     """
-    Completely delete this item from the pantry (item table), regardless of its quantity.
+    Completely delete all of this item from the pantry (item table), regardless of its quantity.
     Returns True if an item was deleted, False otherwise.
     """
-    with get_connection() as conn:
-        c = conn.cursor()
-        # Find item_lookup_id for this barcode
-        c.execute("SELECT item_lookup_id FROM item_lookup WHERE barcode = %s", (barcode,))
-        row = c.fetchone()
-        if not row:
-            return False
-        item_lookup_id = row[0]
-        # Delete from item table
-        c.execute("DELETE FROM item WHERE item_lookup_id = %s", (item_lookup_id,))
-        conn.commit()
-        return c.rowcount > 0
+    item_lookup = session.query(ItemLookup).where(ItemLookup.barcode == barcode).first()
+    if not item_lookup:
+        return False  # Unknown barcode. What should we do here?
+    else:
+        item = session.query(Item).where(Item.item_lookup_id == item_lookup.item_lookup_id).first()
+        if item:
+            session.delete(item)
+            session.commit()
+            return True
+    return False
 
 
 def get_all_items(category_id=None):
-    """
-    Return all pantry items as a list of:
-      (item_id, item_name, description, barcode, quantity)
-    """
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute(
-            """
-            SELECT
-                i.item_id,
-                il.item_name,
-                il.description,
-                il.barcode,
-                i.quantity
-            FROM item i
-            JOIN item_lookup il ON i.item_lookup_id = il.item_lookup_id
-            ORDER BY il.item_name
-            """
-        )
-        return c.fetchall()
+    items = session.query(Item).all()
+    return items
 
+def get_item_lookup_by_id(item_lookup_id):
+    item_lookups = session.query(ItemLookup).where(ItemLookup.item_lookup_id == item_lookup_id).first()
+    return item_lookups
 
+def get_new_item_lookup_from_api(barcode):
+    """
+    Fetch item details from UPCItemDB API using the given barcode.
+    Creates a new item_lookup record if found, or returns None if not found or error.
+    """
+    url = "https://api.upcitemdb.com/prod/trial/lookup?" + urlencode({"upc": barcode})
+    try:
+        with urlopen(url, timeout=5) as response:
+            data = json.loads(response.read().decode())
+        if data.get("code") == "OK" and data.get("total", 0) > 0:
+            item = data["items"][0]
+            # Create new ItemLookup record
+            new_lookup = ItemLookup(
+                barcode=barcode,
+                item_name=item.get("title"),
+                description=item.get("description"),
+            )
+            session.add(new_lookup)
+            session.commit()
+            return new_lookup
+        else:
+            return None
+    except Exception as e:
+        print(f"API error: {e}")
+        return None

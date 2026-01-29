@@ -1,10 +1,16 @@
 # database.py
 #import sqlite3
 import psycopg2
+from sqlalchemy import create_engine
 from datetime import datetime
+
 
 # --- Configuration ---
 DB_NAME = "openfoodfacts_slim.db"
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:password@localhost:5432/homeappdb"
+
+# SQLAlchemy engine for ORM usage
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # --- Connection Management ---
 def get_connection():

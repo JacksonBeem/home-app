@@ -7,7 +7,6 @@ The pantry module lives in pantry_app.py and can still be run standalone.
 """
 
 from __future__ import annotations
-
 import tkinter as tk
 from tkinter import ttk
 
@@ -156,13 +155,7 @@ class HomeApp(tk.Tk):
 
 
 class HomeDashboard(ttk.Frame):
-    """Main tile dashboard.
-
-    Layout matches your sketch:
-      [ Cooking ] [ Pantry ]
-      [ Family  ] [ Chores ]
-      [   +     ] [  (empty) ]
-    """
+    # Main tile dashboard.
 
     def __init__(self, master: tk.Misc, *, on_open):
         super().__init__(master)

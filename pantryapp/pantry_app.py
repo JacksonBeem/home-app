@@ -16,12 +16,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Callable, Optional
-
 # from database import init_db_schema
 from .pantry_model import (
     add_item,
     remove_item,
     get_all_items,
+    get_item_lookup_by_id
 )
 from .gui_windows import ItemDetailsWindow, CategoriesWindow, FilterWindow
 
@@ -381,11 +381,26 @@ class PantryPage(ttk.Frame):
         for row in self.tree.get_children():
             self.tree.delete(row)
 
+        # get_all_items and get_all_item_lookups
         items = get_all_items(category_id=self.current_category_filter_id)
-        for barcode, name, display_location, last_scanned, qty in items:
-            display_location = display_location if display_location else "-"
-            age_text = self._format_age(last_scanned)
-            self.tree.insert("", tk.END, iid=barcode, values=(name, display_location, age_text, qty))
+
+        for item in items:
+            item_lookup = get_item_lookup_by_id(item.item_lookup_id)
+            item_name = item_lookup.item_name if item_lookup else "Unknown Item"
+            quantity = item.quantity if item.quantity is not None else 0
+            display_location = '-' #This will need to be completed when categories are available
+            age_text = '-'  # This will need to be completed when last_scanned is available
+            self.tree.insert(
+                "",
+                tk.END,
+                iid=getattr(item_lookup, 'barcode', None) or item.id,
+                values=(
+                    item_name,
+                    display_location,
+                    age_text,
+                    quantity
+                ),
+            )
 
     # ---------- Modes / scanning ----------
 
