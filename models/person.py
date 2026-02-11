@@ -14,7 +14,6 @@ class Person(Base):
     last_name = Column(String(100))
     date_of_birth = Column(Date)
     gender = Column(String(50))
-    person_family_id = Column(Integer)
 
 def create_tables():
     """Create all tables in the database using the engine from database.py."""

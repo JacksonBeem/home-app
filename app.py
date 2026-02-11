@@ -12,6 +12,7 @@ from tkinter import ttk
 
 # from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
+from cookingapp.cooking_app import CookingPage
 
 
 class HomeApp(tk.Tk):
@@ -27,7 +28,10 @@ class HomeApp(tk.Tk):
         # Pages
         self._home_page = HomeDashboard(self, on_open=self._open_page)
         self._pantry_page = PantryPage(self, on_home=self.show_home)
-        self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (coming soon)")
+        try:
+            self._cooking_page = CookingPage(self, on_home=self.show_home)
+        except ImportError:
+            self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (unavailable)")
         self._chores_page = PlaceholderPage(self, title="Chores", subtitle="Assignments & reminders (coming soon)")
         self._family_page = PlaceholderPage(self, title="Family", subtitle="Members & preferences (coming soon)")
         self._new_page = PlaceholderPage(self, title="Add", subtitle="Create a new module (coming soon)")
