@@ -6,10 +6,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from cookingapp.cooking_model import RecipeManager
 from cookingapp.gui_windows import RecipeDetailsWindow, RecipeListWindow
-
-
-
 # Embeddable CookingPage for HomeApp
+global FAVORITE_RECIPES
 class CookingPage(ttk.Frame):
     """Embeddable Cooking UI (like PantryPage)."""
     def __init__(self, master, *, on_home=None, padding=0):
@@ -57,17 +55,28 @@ class CookingPage(ttk.Frame):
         from database import engine
         Session = sessionmaker(bind=engine)
         session = Session()
+
+        def get_selected_person():
+            global FAVORITE_RECIPES
+            selected_name = self.person_var.get()
+            selected_person = next((p for p in people if f"{p.first_name} {p.last_name}" == selected_name), None)
+            if selected_person:
+                person_id = selected_person.person_id
+            FAVORITE_RECIPES = self.manager.get_favorite_recipes(person_id)
+            self.refresh_recipes(FAVORITE_RECIPES)
+
         people = self.manager.get_all_people()
         self.person_var = tk.StringVar()
         person_names = [f"{p.first_name} {p.last_name}" for p in people]
         self.person_dropdown = ttk.Combobox(nav_frame, textvariable=self.person_var, values=person_names, state="readonly", width=18)
         self.person_dropdown.grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.person_dropdown.set(person_names[0] if person_names else "")
-        ttk.Button(nav_frame, text="Show Favorites", style="TopNav.TButton", command=self._filter_favorites).grid(row=0, column=1, sticky="w", padx=(0, 8))
+
+        ttk.Button(nav_frame, text="Show Favorites", style="TopNav.TButton", command=lambda: get_selected_person()).grid(row=0, column=1, sticky="w", padx=(0, 8))
 
         # Add/View buttons
         ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=self._add_recipe).grid(row=0, column=2, sticky="w", padx=(0, 8))
-        ttk.Button(nav_frame, text="View All Recipes", style="TopNav.TButton", command=self._open_recipe_list).grid(row=0, column=3, sticky="w", padx=(0, 8))
+        #ttk.Button(nav_frame, text="View Favorite Recipes", style="TopNav.TButton", command=self._open_recipe_list).grid(row=0, column=3, sticky="w", padx=(0, 8))
 
         # Spacer
         if self.on_home:
@@ -79,21 +88,15 @@ class CookingPage(ttk.Frame):
         self.recipe_listbox.bind("<Double-Button-1>", self._on_recipe_open)
         self.refresh_recipes()
 
-    def _filter_favorites(self):
-        # Filter recipes by is_favorite for selected person needs to be implemented in the model/database first
-        selected_person = self.person_var.get()
-        if not selected_person:
-            messagebox.showinfo("No Person Selected", "Please select a person to filter favorites.")
-            return
-        filtered = [r for r in recipes if getattr(r, 'recipe_id', None) in fav_recipe_ids]
-        self.recipe_listbox.delete(0, tk.END)
-        for recipe in filtered:
-            self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
-
-    def refresh_recipes(self):
-        self.recipe_listbox.delete(0, tk.END)
-        for recipe in self.manager.get_all_recipes():
-            self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
+    def refresh_recipes(self, favorite_recipes=None):
+        if favorite_recipes is not None:
+            self.recipe_listbox.delete(0, tk.END)
+            for recipe in favorite_recipes:
+                self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
+        else:
+            self.recipe_listbox.delete(0, tk.END)
+            for recipe in self.manager.get_all_recipes():
+                self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
 
     def _add_recipe(self):
         # For demo, just add a dummy recipe

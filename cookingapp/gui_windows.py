@@ -32,4 +32,15 @@ class RecipeListWindow(tk.Toplevel):
         for recipe in recipes:
             listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
 
+    def _filter_favorites(self):
+        # Filter recipes by is_favorite for selected person needs to be implemented in the model/database first
+        selected_person = self.person_var.get()
+        if not selected_person:
+            messagebox.showinfo("No Person Selected", "Please select a person to filter favorites.")
+            return
+        filtered = [r for r in recipes if getattr(r, 'recipe_id', None) in fav_recipe_ids]
+        self.recipe_listbox.delete(0, tk.END)
+        for recipe in filtered:
+            self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
+
 # Add more windows as needed

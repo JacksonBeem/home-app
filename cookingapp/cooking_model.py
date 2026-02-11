@@ -6,6 +6,7 @@ from models.item import Item
 from models.item_lookup import ItemLookup
 from models.person import Person
 from models.recipe import Recipe
+from models.person_recipe import PersonRecipe
 from sqlalchemy.orm import sessionmaker
 from database import get_connection, engine
 import json
@@ -33,8 +34,13 @@ class RecipeManager:
         return session.query(Recipe).all()
         #return list(self._recipes)
 
-    def get_favorite_recipes(self):
-        return 'TODO: Implement favorite recipe filtering'
+    def get_favorite_recipes(self, person_id):
+        person = session.query(Person).where(Person.person_id == person_id).first()
+        if not person:
+            return []
+        person_recipes = session.query(PersonRecipe).where(PersonRecipe.person_id == person_id and PersonRecipe.is_favorite == True).all()
+        fav_recipe_ids = {pr.recipe_id for pr in person_recipes if pr.is_favorite}
+        return session.query(Recipe).where(Recipe.recipe_id.in_(fav_recipe_ids)).all()
     
     def get_all_people(self):
         return session.query(Person).all()
