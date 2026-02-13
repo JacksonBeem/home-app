@@ -72,10 +72,11 @@ class CookingPage(ttk.Frame):
         self.person_dropdown.grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.person_dropdown.set(person_names[0] if person_names else "")
 
-        ttk.Button(nav_frame, text="Show Favorites", style="TopNav.TButton", command=lambda: get_selected_person()).grid(row=0, column=1, sticky="w", padx=(0, 8))
+        ttk.Button(nav_frame, text="Show All Recipes", style="TopNav.TButton", command=lambda: self.refresh_recipes()).grid(row=0, column=1, sticky="w", padx=(0, 8))
+        ttk.Button(nav_frame, text="Show Favorites", style="TopNav.TButton", command=lambda: get_selected_person()).grid(row=0, column=2, sticky="w", padx=(0, 8))
 
         # Add/View buttons
-        ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=self._add_recipe).grid(row=0, column=2, sticky="w", padx=(0, 8))
+        ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=self._add_recipe).grid(row=0, column=3, sticky="w", padx=(0, 8))
         #ttk.Button(nav_frame, text="View Favorite Recipes", style="TopNav.TButton", command=self._open_recipe_list).grid(row=0, column=3, sticky="w", padx=(0, 8))
 
         # Spacer

@@ -1,5 +1,5 @@
 # Example: models.py
-from sqlalchemy import Column, Integer, Numeric, String
+from sqlalchemy import Column, Integer, LargeBinary, Numeric, String
 from sqlalchemy.ext.declarative import declarative_base
 import database
 
@@ -11,6 +11,9 @@ class Recipe(Base):
     recipe_name = Column(String)
     prep_time = Column(Numeric(2, 5))
     cook_time = Column(Numeric(2, 5))
+    instructions = Column(String)
+    video_url = Column(String)
+    image = Column(LargeBinary)  # Store image as binary data
 
 def create_tables():
     """Create all tables in the database using the engine from database.py."""
