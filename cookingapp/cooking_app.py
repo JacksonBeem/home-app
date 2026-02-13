@@ -75,9 +75,13 @@ class CookingPage(ttk.Frame):
         ttk.Button(nav_frame, text="Show All Recipes", style="TopNav.TButton", command=lambda: self.refresh_recipes()).grid(row=0, column=1, sticky="w", padx=(0, 8))
         ttk.Button(nav_frame, text="Show Favorites", style="TopNav.TButton", command=lambda: get_selected_person()).grid(row=0, column=2, sticky="w", padx=(0, 8))
 
-        # Add/View buttons
-        ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=self._add_recipe).grid(row=0, column=3, sticky="w", padx=(0, 8))
-        #ttk.Button(nav_frame, text="View Favorite Recipes", style="TopNav.TButton", command=self._open_recipe_list).grid(row=0, column=3, sticky="w", padx=(0, 8))
+        # Recipe name textbox
+        self.recipe_name_var = tk.StringVar()
+        self.recipe_name_entry = ttk.Entry(nav_frame, textvariable=self.recipe_name_var, width=20)
+        self.recipe_name_entry.grid(row=0, column=3, sticky="w", padx=(0, 8))
+
+        # Add Recipe button
+        ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=lambda: self.manager.fetch_recipe(self.recipe_name_var.get())).grid(row=0, column=4, sticky="w", padx=(0, 8))
 
         # Spacer
         if self.on_home:
@@ -99,11 +103,16 @@ class CookingPage(ttk.Frame):
             for recipe in self.manager.get_all_recipes():
                 self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
 
-    def _add_recipe(self):
-        # For demo, just add a dummy recipe
-        new_recipe = {"name": f"Recipe {len(self.manager.get_all_recipes())+1}"}
-        self.manager.add_recipe(new_recipe)
-        self.refresh_recipes()
+    # def _add_recipe(self):
+    #     # Add recipe using the name from the textbox
+    #     recipe_name = self.recipe_name_var.get().strip()
+    #     if not recipe_name:
+    #         messagebox.showwarning("Missing Name", "Please enter a recipe name.")
+    #         return
+    #     new_recipe = {"name": recipe_name}
+    #     self.manager.add_recipe(new_recipe)
+    #     self.refresh_recipes()
+    #     self.recipe_name_var.set("")  # Clear textbox
 
     def _open_recipe_list(self):
         RecipeListWindow(self)

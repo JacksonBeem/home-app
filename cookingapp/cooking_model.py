@@ -12,6 +12,10 @@ from database import get_connection, engine
 import json
 from urllib.request import urlopen
 from urllib.parse import urlencode
+import requests
+import psycopg2
+from psycopg2 import sql
+import io
 
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -44,5 +48,63 @@ class RecipeManager:
     
     def get_all_people(self):
         return session.query(Person).all()
+    
+    def fetch_recipe(self, item_name):
+        url = f'https://www.themealdb.com/api/json/v1/1/search.php?s={item_name}'
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if not data['meals']:
+            raise ValueError(f"No recipe found for {item_name}")
+        self.transform_recipe(data['meals'][0])
+
+    # --- TRANSFORM ---
+    def transform_recipe(self, meal):
+        import random
+        recipe = {
+            'recipe_name': meal.get('strMeal'),
+            'prep_time': round(random.uniform(10, 30), 2),
+            'cook_time': round(random.uniform(10, 30), 2),
+            'instructions': meal.get('strInstructions'),
+            'video_url': meal.get('strYoutube'),
+            'image_url': meal.get('strMealThumb')
+        }
+        self.fetch_image_as_jpeg(recipe, recipe['image_url'])
+
+    def fetch_image_as_jpeg(self, meal, url):
+        if not url:
+            return None
+        response = requests.get(url)
+        response.raise_for_status()
+        self.load_recipe_to_db(meal, response.content)  # Already JPEG
+
+    # --- LOAD ---
+    def load_recipe_to_db(self, recipe, image_bytes):
+        # conn = psycopg2.connect(**DB_CONFIG)
+        newRecipe = Recipe(
+            recipe_name=recipe['recipe_name'],
+            prep_time=recipe['prep_time'],
+            cook_time=recipe['cook_time'],
+            instructions=recipe['instructions'],
+            video_url=recipe['video_url'],
+            image=image_bytes if image_bytes else None
+        )
+        session.add(newRecipe)
+        session.commit()
+        # with conn, conn.cursor() as cur:
+        #     insert_query = sql.SQL('''
+        #         INSERT INTO recipe (recipe_name, prep_time, cook_time, instructions, video_url, image)
+        #         VALUES (%s, %s, %s, %s, %s, %s)
+        #         RETURNING recipe_id;
+        #     ''')
+        #     cur.execute(insert_query, (
+        #         recipe['recipe_name'],
+        #         recipe['prep_time'],
+        #         recipe['cook_time'],
+        #         recipe['instructions'],
+        #         recipe['video_url'],
+        #         psycopg2.Binary(image_bytes) if image_bytes else None
+        #     ))
+        #
 
 # Add more model classes as needed
