@@ -91,20 +91,3 @@ class RecipeManager:
         )
         session.add(newRecipe)
         session.commit()
-        # with conn, conn.cursor() as cur:
-        #     insert_query = sql.SQL('''
-        #         INSERT INTO recipe (recipe_name, prep_time, cook_time, instructions, video_url, image)
-        #         VALUES (%s, %s, %s, %s, %s, %s)
-        #         RETURNING recipe_id;
-        #     ''')
-        #     cur.execute(insert_query, (
-        #         recipe['recipe_name'],
-        #         recipe['prep_time'],
-        #         recipe['cook_time'],
-        #         recipe['instructions'],
-        #         recipe['video_url'],
-        #         psycopg2.Binary(image_bytes) if image_bytes else None
-        #     ))
-        #
-
-# Add more model classes as needed
