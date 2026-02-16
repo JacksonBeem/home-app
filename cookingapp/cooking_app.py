@@ -79,14 +79,27 @@ class CookingPage(ttk.Frame):
         self.recipe_name_var = tk.StringVar()
         self.recipe_name_entry = ttk.Entry(nav_frame, textvariable=self.recipe_name_var, width=20)
         self.recipe_name_entry.grid(row=0, column=3, sticky="w", padx=(0, 8))
+        self._placeholder = "Enter recipe or category..."
+        self.recipe_name_entry.insert(0, self._placeholder)
+        self.recipe_name_entry.configure(foreground="#888")
+
+        def on_entry_focus_in(event):
+            if self.recipe_name_entry.get() == self._placeholder:
+                self.recipe_name_entry.delete(0, tk.END)
+                self.recipe_name_entry.configure(foreground="#000")
+
+        def on_entry_focus_out(event):
+            if not self.recipe_name_entry.get():
+                self.recipe_name_entry.insert(0, self._placeholder)
+                self.recipe_name_entry.configure(foreground="#888")
+
+        self.recipe_name_entry.bind("<FocusIn>", on_entry_focus_in)
+        self.recipe_name_entry.bind("<FocusOut>", on_entry_focus_out)
 
         # Add Recipe button
         ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=lambda: self.manager.fetch_recipe(self.recipe_name_var.get())).grid(row=0, column=4, sticky="w", padx=(0, 8))
-
-        # Spacer
-        if self.on_home:
-            ttk.Button(nav_frame, text="Home", style="TopNav.TButton", command=self.on_home).grid(row=0, column=4, sticky="e", padx=(0, 4))
-
+        # Category button (gets 10 random recipes from that category)
+        ttk.Button(nav_frame, text="Random Recipes from Category", style="TopNav.TButton", command=lambda: self.manager.fetch_random_by_category(self.recipe_name_var.get())).grid(row=0, column=5, sticky="w", padx=(0, 8))
         # Recipe list
         self.recipe_listbox = tk.Listbox(self, height=10)
         self.recipe_listbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
@@ -102,17 +115,6 @@ class CookingPage(ttk.Frame):
             self.recipe_listbox.delete(0, tk.END)
             for recipe in self.manager.get_all_recipes():
                 self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
-
-    # def _add_recipe(self):
-    #     # Add recipe using the name from the textbox
-    #     recipe_name = self.recipe_name_var.get().strip()
-    #     if not recipe_name:
-    #         messagebox.showwarning("Missing Name", "Please enter a recipe name.")
-    #         return
-    #     new_recipe = {"name": recipe_name}
-    #     self.manager.add_recipe(new_recipe)
-    #     self.refresh_recipes()
-    #     self.recipe_name_var.set("")  # Clear textbox
 
     def _open_recipe_list(self):
         RecipeListWindow(self)

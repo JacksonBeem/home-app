@@ -1,5 +1,6 @@
 # cooking_model.py
 # Data/model logic for CookingApp
+from random import random
 import sqlite3
 from datetime import datetime
 from models.item import Item
@@ -91,3 +92,24 @@ class RecipeManager:
         )
         session.add(newRecipe)
         session.commit()
+
+    def fetch_random_by_category(self, category, parent=None):
+        url = f'https://www.themealdb.com/api/json/v1/1/filter.php?c={category}'
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if not data['meals']:
+            raise ValueError(f"No recipes found for category {category}")
+        import random
+        meals = random.sample(data['meals'], min(10, len(data['meals'])))
+        # Show in CategoryWindow for selection
+        from tkinter import messagebox
+        from cookingapp.gui_windows import CategoryWindow
+        def on_meal_select(meal_name):
+            try:
+                self.fetch_recipe(meal_name)
+                messagebox.showinfo("Recipe Fetched", f"Fetched recipe for {meal_name}")
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+        win_parent = parent if parent is not None else None
+        CategoryWindow(win_parent, meals, on_meal_select, category_name=category)

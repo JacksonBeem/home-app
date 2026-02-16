@@ -5,6 +5,7 @@
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 from PIL import Image, ImageTk
 import io
 from selenium import webdriver
@@ -97,4 +98,25 @@ class RecipeListWindow(tk.Toplevel):
         for recipe in filtered:
             self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
 
-# Add more windows as needed
+
+# CategoryWindow for random meal selection
+class CategoryWindow(tk.Toplevel):
+    def __init__(self, master, meals, on_select, category_name="Category"):
+        super().__init__(master)
+        self.title(f"Random Recipes: {category_name}")
+        self.geometry("350x350")
+        self.listbox = tk.Listbox(self, height=15)
+        self.listbox.pack(fill="both", expand=True, padx=10, pady=10)
+        for meal in meals:
+            self.listbox.insert(tk.END, meal['strMeal'])
+        self.meals = meals
+        self.on_select = on_select
+        self.listbox.bind("<Double-Button-1>", self._on_double_click)
+
+    def _on_double_click(self, event):
+        idx = self.listbox.curselection()
+        if not idx:
+            return
+        meal = self.meals[idx[0]]
+        self.on_select(meal['strMeal'])
+        self.destroy()
