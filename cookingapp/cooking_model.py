@@ -25,28 +25,42 @@ class RecipeManager:
         self._recipes = []
         self._next_id = 1
 
-    def add_recipe(self, recipe):
-        recipe = dict(recipe)
-        recipe['id'] = self._next_id
-        self._next_id += 1
-        self._recipes.append(recipe)
-
+    # Not currently used, but could be helpful for future features like recipe deletion.
     def remove_recipe(self, recipe_id):
         self._recipes = [r for r in self._recipes if r.get('id') != recipe_id]
 
     def get_all_recipes(self):
+        # equivalent query:
+        # Select *
+        # From recipe
         return session.query(Recipe).all()
         #return list(self._recipes)
 
     def get_favorite_recipes(self, person_id):
+        # equivalent query:
+        # Select * 
+        # From person p 
+        # Where p.person_id = {input_person_id}
         person = session.query(Person).where(Person.person_id == person_id).first()
         if not person:
             return []
+        # equivalent query:
+        # Select * 
+        # From person_recipe pr 
+        # Where pr.person_id = {input_person_id} 
+        #     AND pr.is_favorite
         person_recipes = session.query(PersonRecipe).where(PersonRecipe.person_id == person_id and PersonRecipe.is_favorite == True).all()
         fav_recipe_ids = {pr.recipe_id for pr in person_recipes if pr.is_favorite}
+        # equivalent query:
+        # Select * 
+        # From recipe r 
+        # Where r.recipe_id IN {input_fav_recipe_ids}
         return session.query(Recipe).where(Recipe.recipe_id.in_(fav_recipe_ids)).all()
     
     def get_all_people(self):
+        # equivalent query:
+        # Select * 
+        # From person 
         return session.query(Person).all()
     
     def fetch_recipe(self, item_name):
@@ -80,6 +94,9 @@ class RecipeManager:
 
     # --- LOAD ---
     def load_recipe_to_db(self, recipe, image_bytes):
+        # equivalent query:
+        # Insert into recipe (recipe_name, prep_time, cook_time, instructions, video_url, image)
+        # Values ({input_recipe_name}, {input_prep_time}, {input_cook_time}, {input_instructions}, {input_video_url}, {input_image_bytes})
         newRecipe = Recipe(
             recipe_name=recipe['recipe_name'],
             prep_time=recipe['prep_time'],
