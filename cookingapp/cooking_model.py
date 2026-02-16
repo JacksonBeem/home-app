@@ -76,11 +76,10 @@ class RecipeManager:
             return None
         response = requests.get(url)
         response.raise_for_status()
-        self.load_recipe_to_db(meal, response.content)  # Already JPEG
+        self.load_recipe_to_db(meal, response.content)
 
     # --- LOAD ---
     def load_recipe_to_db(self, recipe, image_bytes):
-        # conn = psycopg2.connect(**DB_CONFIG)
         newRecipe = Recipe(
             recipe_name=recipe['recipe_name'],
             prep_time=recipe['prep_time'],

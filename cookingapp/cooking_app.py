@@ -103,17 +103,6 @@ class CookingPage(ttk.Frame):
             for recipe in self.manager.get_all_recipes():
                 self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
 
-    # def _add_recipe(self):
-    #     # Add recipe using the name from the textbox
-    #     recipe_name = self.recipe_name_var.get().strip()
-    #     if not recipe_name:
-    #         messagebox.showwarning("Missing Name", "Please enter a recipe name.")
-    #         return
-    #     new_recipe = {"name": recipe_name}
-    #     self.manager.add_recipe(new_recipe)
-    #     self.refresh_recipes()
-    #     self.recipe_name_var.set("")  # Clear textbox
-
     def _open_recipe_list(self):
         RecipeListWindow(self)
 
