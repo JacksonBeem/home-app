@@ -12,6 +12,7 @@ from tkinter import ttk
 
 # from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
+from choresapp.chores_app import ChoresPage
 from cookingapp.cooking_app import CookingPage
 
 
@@ -28,6 +29,8 @@ class HomeApp(tk.Tk):
         # Pages
         self._home_page = HomeDashboard(self, on_open=self._open_page)
         self._pantry_page = PantryPage(self, on_home=self.show_home)
+        self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (coming soon)")
+        self._chores_page = ChoresPage(self, on_home=self.show_home)
         try:
             self._cooking_page = CookingPage(self, on_home=self.show_home)
         except ImportError:
@@ -38,7 +41,7 @@ class HomeApp(tk.Tk):
 
         self.show_home()
 
-    # --------- Styling (matches pantry palette, but for the home tiles) ---------
+    # --------- Styling ---------
 
     def _setup_style(self) -> None:
         style = ttk.Style(self)
