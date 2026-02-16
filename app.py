@@ -13,6 +13,7 @@ from tkinter import ttk
 # from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
 from choresapp.chores_app import ChoresPage
+from cookingapp.cooking_app import CookingPage
 
 
 class HomeApp(tk.Tk):
@@ -30,6 +31,11 @@ class HomeApp(tk.Tk):
         self._pantry_page = PantryPage(self, on_home=self.show_home)
         self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (coming soon)")
         self._chores_page = ChoresPage(self, on_home=self.show_home)
+        try:
+            self._cooking_page = CookingPage(self, on_home=self.show_home)
+        except ImportError:
+            self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (unavailable)")
+        self._chores_page = ChoresPage(self, on_open=self._open_page)
         self._family_page = PlaceholderPage(self, title="Family", subtitle="Members & preferences (coming soon)")
         self._new_page = PlaceholderPage(self, title="Add", subtitle="Create a new module (coming soon)")
 
@@ -215,6 +221,18 @@ class HomeDashboard(ttk.Frame):
         spacer = ttk.Frame(tiles, width=1)
         spacer.grid(row=2, column=1, padx=14, pady=(14, 0), sticky="nsew")
 
+class ChoresPage(ttk.Frame):
+    def __init__(self, master: tk.Misc, *, on_open):
+        super().__init__(master)
+        self.on_open = on_open
+        self._build()
+    def _build(self) -> None:
+        # Header
+        header = ttk.Frame(self)
+        header.pack(side=tk.TOP, fill=tk.X)
+
+        title = ttk.Label(header, text="House Chores", style="HomeTitle.TLabel")
+        title.pack(side=tk.LEFT, anchor="w")
 
 class PlaceholderPage(ttk.Frame):
     def __init__(self, master: tk.Misc, *, title: str, subtitle: str):
