@@ -9,9 +9,11 @@ Base = declarative_base()
 class Chore(Base):
     __tablename__ = 'chore'
     chore_id = Column(Integer, primary_key=True)
+    chore_num = Column(Integer)
     description = Column(String(500))
     person_id = Column(Integer)
     frequency = Column(String(50))
+    priority = Column(Integer)
 
 def create_tables():
     """Create all tables in the database using the engine from database.py."""

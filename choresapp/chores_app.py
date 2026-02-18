@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, simpledialog, messagebox
 from typing import Optional
 
-from .chores_model import get_all_chores, add_chore, delete_chore
+from .chores_model import get_all_chores, add_chore, delete_chore, set_chore_priority
 
 class ChoresPage(ttk.Frame):
     """"  
@@ -56,17 +56,13 @@ class ChoresPage(ttk.Frame):
 
         btn_create = ttk.Button(tiles, text="Create", style="Tile.TButton", width=tile_w,
             command=self._on_create_click)
-        btn_delete = tile("Delete", "delete")
         btn_alert = tile("Create Alert", "alert")
-        btn_priority = tile("Set Priority", "priority")
         btn_assign = tile("Assign Mem", "assign")
-
-        btn_delete = ttk.Button(
-            tiles,
-            text="Delete",
-            style="Tile.TButton",
-            width=tile_w,
+        btn_delete = ttk.Button(tiles, text="Delete", style="Tile.TButton", width=tile_w,
             command=self._on_delete_click
+        )
+        btn_priority = ttk.Button(tiles, text="Set Priority", 
+            command=self._on_priority_click
         )
 
         btn_create.grid(row=0, column=0, padx=4, pady=4, ipadx=8, ipady=tile_h)
@@ -78,16 +74,32 @@ class ChoresPage(ttk.Frame):
         
         self.chore_list = scrolledtext.ScrolledText(tiles, width=80, height=10)
         self.chore_list.grid(row=1, column=0, columnspan=5, padx=10, pady=10)
+
+        self.chore_list.tag_config("prio1", background="#ffcccc", foreground="black")
+        self.chore_list.tag_config("prio2", background="#ffffcc", foreground="black")
+        self.chore_list.tag_config("prio3", background="#ccffcc", foreground="black")
     
     def refresh_list(self):
         self.chore_list.configure(state='normal')
         self.chore_list.delete('1.0', tk.END)
         
         chores = get_all_chores()
+        
         for c in chores:
-            # Change c.id to c.chore_id
-            display_text = f"{c.description} ({c.frequency})\n"
-            self.chore_list.insert(tk.END, display_text)
+            display_text = f"#{c.chore_num:<3} | {c.description} ({c.frequency}) priority({c.priority})\n"
+            
+            tag_name = ""
+            if c.priority == 1:
+                tag_name = "prio1"
+            elif c.priority == 2:
+                tag_name = "prio2"
+            elif c.priority == 3:
+                tag_name = "prio3"
+
+            # Insert the text with the tag (if any)
+            # If tag_name is empty, it just inserts normal text
+            self.chore_list.insert(tk.END, display_text, tag_name)
+            self.chore_list.insert(tk.END, "-" * 50 + "\n")
             
         self.chore_list.configure(state='disabled')
     
@@ -127,3 +139,21 @@ class ChoresPage(ttk.Frame):
                     self.refresh_list()
                 else:
                     messagebox.showerror("Error", f"Chore ID {target_id} not found.")
+
+    def _on_priority_click(self):
+        # 1. Ask which chore to update
+        target_num = simpledialog.askinteger("Priority", "Enter Chore #:")
+        if target_num is None: return
+
+        # 2. Ask for the new priority level
+        new_prio = simpledialog.askinteger("Priority", "Enter Level (1=Red, 2=Yellow, 3=Green, 0=None):")
+        
+        if new_prio is not None:
+            if 0 <= new_prio <= 3:
+                success = set_chore_priority(target_num, new_prio)
+                if success:
+                    self.refresh_list()
+                else:
+                    messagebox.showwarning("Error", f"Chore #{target_num} not found.")
+            else:
+                messagebox.showwarning("Invalid", "Please enter a priority between 0 and 3.")
