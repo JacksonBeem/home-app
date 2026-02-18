@@ -146,7 +146,7 @@ class ChoresPage(ttk.Frame):
         if target_num is None: return
 
         # 2. Ask for the new priority level
-        new_prio = simpledialog.askinteger("Priority", "Enter Level (1=Red, 2=Yellow, 3=Green, 0=None):")
+        new_prio = simpledialog.askinteger("Priority", "Enter Level (1=Critical, 2=Non-Critical, 3=Important, 0=When Needed):")
         
         if new_prio is not None:
             if 0 <= new_prio <= 3:
