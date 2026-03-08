@@ -86,35 +86,40 @@ class ChoresPage(ttk.Frame):
         chores = get_all_chores()
         
         for c in chores:
-            display_text = f"#{c.chore_num:<3} | {c.description} ({c.frequency}) priority({c.priority})\n"
-            
-            tag_name = ""
-            if c.priority == 1:
-                tag_name = "prio1"
-            elif c.priority == 2:
-                tag_name = "prio2"
-            elif c.priority == 3:
-                tag_name = "prio3"
-
-            # Insert the text with the tag (if any)
-            # If tag_name is empty, it just inserts normal text
-            self.chore_list.insert(tk.END, display_text, tag_name)
-            self.chore_list.insert(tk.END, "-" * 50 + "\n")
+            # Change c.id to c.chore_id
+            display_text = f"{c.chore_id}: {c.description} ({c.frequency})\n"
+            self.chore_list.insert(tk.END, display_text)
             
         self.chore_list.configure(state='disabled')
     
     def _on_create_click(self):
         # 1. Collect data from user
-        desc = simpledialog.askstring("New Chore", "What is the chore description?")
-        if not desc: return # User cancelled
-        
-        p_id = simpledialog.askinteger("Assign", "Enter Person ID (Number):")
-        freq = simpledialog.askstring("Frequency", "How often? (Daily, Weekly, etc.):")
+
+        parent = self.winfo_toplevel()
+        while True:
+            desc = simpledialog.askstring("New Chore", "What is the chore description?", parent=parent)
+            if desc is None or desc.strip() != "":
+                break
+        if desc is None:
+            return  # User cancelled
+
+        while True:
+            p_id = simpledialog.askinteger("Assign", "Enter Person ID (Number):", parent=parent)
+            if p_id is None or str(p_id).strip() != "":
+                break
+        if p_id is None:
+            return  # User cancelled
+
+        while True:
+            freq = simpledialog.askstring("Frequency", "How often? (Daily, Weekly, etc.):", parent=parent)
+            if freq is None or freq.strip() != "":
+                break
+        if freq is None:
+            return  # User cancelled
 
         # 2. Send to chores_model.py
         try:
             success = add_chore(description=desc, person_id=p_id, frequency=freq)
-            
             if success:
                 # 3. Update the UI to show the new data
                 self.refresh_list()
