@@ -1,8 +1,12 @@
 # database.py
 #import sqlite3
+import sqlite3
 import psycopg2
 from sqlalchemy import create_engine
 from datetime import datetime
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 # --- Configuration ---
@@ -13,6 +17,15 @@ SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:password@localhost:543
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # --- Connection Management ---
+def _get_sqlite_connection():
+    db_path = os.path.join(os.path.dirname(__file__), DB_NAME)
+    try:
+        return sqlite3.connect(db_path)
+    except sqlite3.Error as e:
+        print(f"SQLite fallback failed: {e}")
+        return None
+
+
 def get_connection():
     # Setup a connection to the PostgreSQL database
     try:
@@ -25,8 +38,14 @@ def get_connection():
         )
         return connection
     except psycopg2.Error as e:
-        print(f"An error occurred: {e}")
-        return None
+        print(f"Postgres error, falling back to SQLite: {e}")
+        return _get_sqlite_connection()
+    
+        
+
+
+
+
 
 def _lookup_display_name(conn, barcode): # not accessed right now
     """
