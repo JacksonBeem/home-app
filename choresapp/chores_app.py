@@ -61,7 +61,7 @@ class ChoresPage(ttk.Frame):
         btn_delete = ttk.Button(tiles, text="Delete", style="Tile.TButton", width=tile_w,
             command=self._on_delete_click
         )
-        btn_priority = ttk.Button(tiles, text="Set Priority", 
+        btn_priority = ttk.Button(tiles, text="Set Priority", style="Tile.TButton", width=tile_w, 
             command=self._on_priority_click
         )
 
