@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, simpledialog, messagebox
 from typing import Optional
 
-from .chores_model import get_all_chores, add_chore, delete_chore, set_chore_priority
+from .chores_model import get_all_chores, add_chore, delete_chore, set_chore_priority, assign_chore_member
 
 class ChoresPage(ttk.Frame):
     """"  
@@ -56,8 +56,10 @@ class ChoresPage(ttk.Frame):
 
         btn_create = ttk.Button(tiles, text="Create", style="Tile.TButton", width=tile_w,
             command=self._on_create_click)
-        btn_alert = tile("Create Alert", "alert")
-        btn_assign = tile("Assign Mem", "assign")
+        btn_alert = ttk.Button(tiles, text="Create Alert", style="Tile.TButton", width=tile_w,
+            command=self._on_alert_click)
+        btn_assign = ttk.Button(tiles, text="Assign Mem", style="Tile.TButton", width=tile_w,
+            command=self._on_assign_click)
         btn_delete = ttk.Button(tiles, text="Delete", style="Tile.TButton", width=tile_w,
             command=self._on_delete_click
         )
@@ -87,7 +89,7 @@ class ChoresPage(ttk.Frame):
         
         for c in chores:
             # Change c.id to c.chore_id
-            display_text = f"{c.chore_id}: {c.description} ({c.frequency})\n"
+            display_text = f"#{c.chore_num:<3} | {c.description} | Assigned to: {c.person_id} | Prio: {c.priority}\n"
             self.chore_list.insert(tk.END, display_text)
             
         self.chore_list.configure(state='disabled')
@@ -162,3 +164,34 @@ class ChoresPage(ttk.Frame):
                     messagebox.showwarning("Error", f"Chore #{target_num} not found.")
             else:
                 messagebox.showwarning("Invalid", "Please enter a priority between 0 and 3.")
+
+    def _on_assign_click(self):
+        # 1. Ask which chore to reassign
+        target_num = simpledialog.askinteger("Assign Member", "Enter Chore #:")
+        if target_num is None: return
+
+        # 2. Ask for the new Person ID
+        new_user_id = simpledialog.askinteger("Assign Member", "Enter New Person ID Number:")
+        
+        if new_user_id is not None:
+            success = assign_chore_member(target_num, new_user_id)
+            if success:
+                self.refresh_list()
+                messagebox.showinfo("Success", f"Chore #{target_num} reassigned to Person {new_user_id}")
+            else:
+                messagebox.showwarning("Error", f"Chore #{target_num} not found.")
+
+    def _on_alert_click(self):
+        # This provides feedback that the long-term chores are now synced to the dashboard
+        chores = get_all_chores()
+        
+        # Check if there are any eligible chores to alert the user
+        eligible = [c for c in chores if c.frequency and "daily" not in c.frequency.lower()]
+        
+        if eligible:
+            messagebox.showinfo("Alerts Created", f"{len(eligible)} weekly/monthly chores added to Dashboard alerts.")
+            # Navigate home to see the new list
+            if self.on_home:
+                self.on_home()
+        else:
+            messagebox.showwarning("No Alerts", "No chores found with Weekly or longer frequency.")
