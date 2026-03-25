@@ -14,6 +14,7 @@ from tkinter import ttk
 from pantryapp.pantry_app import PantryPage
 from choresapp.chores_app import ChoresPage
 from cookingapp.cooking_app import CookingPage
+from familyapp.family_app import FamilyPage
 
 
 class HomeApp(tk.Tk):
@@ -35,7 +36,7 @@ class HomeApp(tk.Tk):
         except ImportError:
             self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (unavailable)")
         #self._chores_page = ChoresPage(self, on_open=self._open_page)
-        self._family_page = PlaceholderPage(self, title="Family", subtitle="Members & preferences (coming soon)")
+        self._family_page = FamilyPage(self, on_home=self.show_home)
         self._new_page = PlaceholderPage(self, title="Add", subtitle="Create a new module (coming soon)")
 
         self.show_home()
