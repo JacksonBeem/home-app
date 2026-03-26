@@ -141,6 +141,7 @@ class HomeApp(tk.Tk):
 
     def show_home(self) -> None:
         self._hide_all_pages()
+        self._home_page.refresh_alerts() 
         self._home_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=26, pady=22)
 
     def _open_page(self, key: str) -> None:
@@ -173,22 +174,17 @@ class HomeDashboard(ttk.Frame):
         # Header
         header = ttk.Frame(self)
         header.pack(side=tk.TOP, fill=tk.X)
-
         title = ttk.Label(header, text="Welcome Home", style="HomeTitle.TLabel")
         title.pack(side=tk.LEFT, anchor="w")
-
-        subtitle = ttk.Label(
-            header,
-            text="Tap a tile to open a module",
-            style="HomeSub.TLabel",
-        )
+        subtitle = ttk.Label(header, text="Tap a tile to open a module", style="HomeSub.TLabel")
         subtitle.pack(side=tk.LEFT, anchor="w", padx=(16, 0), pady=(10, 0))
 
-        # Tiles area
-        tiles_outer = ttk.Frame(self)
-        tiles_outer.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(22, 0))
+        # --- Main Layout Container ---
+        main_content = ttk.Frame(self)
+        main_content.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(22, 0))
 
-        tiles = ttk.Frame(tiles_outer, style="Card.TFrame", padding=18)
+        # LEFT SIDE: Navigation Tiles
+        tiles = ttk.Frame(main_content, style="Card.TFrame", padding=18)
         tiles.pack(side=tk.LEFT, anchor="n")
 
         # Make tiles consistent size
@@ -217,9 +213,38 @@ class HomeDashboard(ttk.Frame):
         btn_chores.grid(row=1, column=1, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_plus.grid(row=2, column=0, padx=14, pady=(14, 0), ipadx=8, ipady=tile_h)
 
-        # Spacer to preserve the empty bottom-right tile area like your sketch
-        spacer = ttk.Frame(tiles, width=1)
-        spacer.grid(row=2, column=1, padx=14, pady=(14, 0), sticky="nsew")
+        # RIGHT SIDE: Alert List
+        alert_frame = ttk.LabelFrame(main_content, text="Chore Alerts", padding=10)
+        alert_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(30, 0))
+
+        # Listbox for alerts
+        self.alert_list = tk.Listbox(alert_frame, font=("Segoe UI", 12), borderwidth=0, highlightthickness=0)
+        self.alert_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Scrollbar for the alert list
+        scroller = ttk.Scrollbar(alert_frame, orient=tk.VERTICAL, command=self.alert_list.yview)
+        scroller.pack(side=tk.RIGHT, fill=tk.Y)
+        self.alert_list.config(yscrollcommand=scroller.set)
+
+    def refresh_alerts(self):
+        """Fetches chores and filters for anything NOT 'Daily'."""
+        self.alert_list.delete(0, tk.END)
+        try:
+            # Local import to prevent circular dependency
+            from choresapp.chores_model import get_all_chores
+            chores = get_all_chores()
+            
+            for c in chores:
+                # Only show if frequency is NOT Daily (Weekly, Monthly, etc.)
+                if c.frequency and "daily" not in c.frequency.lower():
+                    status = f"🔔 {c.description} ({c.frequency})"
+                    self.alert_list.insert(tk.END, status)
+                    
+                    # Highlight Priority 1 (Red) in the alert list too
+                    if c.priority == 1:
+                        self.alert_list.itemconfig(tk.END, foreground="red")
+        except Exception as e:
+            self.alert_list.insert(tk.END, "No alerts available.")
 
 # class ChoresPage(ttk.Frame):
 #     def __init__(self, master: tk.Misc, *, on_open):

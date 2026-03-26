@@ -55,3 +55,13 @@ def set_chore_priority(target_num: int, new_priority: int):
         session.commit()
         return True
     return False
+
+def assign_chore_member(target_num: int, new_person_id: int):
+    """Reassigns a chore to a different person_id."""
+    chore = session.query(Chore).filter(Chore.chore_num == target_num).first()
+    
+    if chore:
+        chore.person_id = new_person_id
+        session.commit()
+        return True
+    return False
