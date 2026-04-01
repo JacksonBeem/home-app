@@ -12,25 +12,35 @@ import threading
 
 load_dotenv()
 
-TOKEN_URL = "https://api-ce.kroger.com/v1/connect/oauth2/token"
-LOC_URL  = "https://api-ce.kroger.com/v1/locations"
-PROD_URL = "https://api-ce.kroger.com/v1/products"
+TOKEN_URL = "https://api.kroger.com/v1/connect/oauth2/token"
+LOC_URL = "https://api.kroger.com/v1/locations"
+PROD_URL = "https://api.kroger.com/v1/products"
 
-SECRET = os.getenv("KROGER_AUTH")
+import base64
 
+CLIENT_ID = os.getenv("KROGER_USERNAME")
+CLIENT_SECRET = os.getenv("KROGER_AUTH")
 
 def bearer_token():
+    creds = f"{CLIENT_ID}:{CLIENT_SECRET}"
+    encoded = base64.b64encode(creds.encode()).decode()
+
     r = requests.post(
         TOKEN_URL,
-        data={"grant_type": "client_credentials", "scope": "product.compact"},
+        data={
+            "grant_type": "client_credentials",
+            "scope": "product.compact",
+        },
         headers={
-            "Authorization": f"Basic {SECRET}",
+            "Authorization": f"Basic {encoded}",
             "Content-Type": "application/x-www-form-urlencoded",
         },
     )
+
+    #print("STATUS:", r.status_code)
+    #print("RESPONSE:", r.text)
+
     return r.json()["access_token"]
-
-
 def get_store(zipcode):
     r = requests.get(
         LOC_URL,
@@ -59,7 +69,8 @@ def search_products(query, location):
         params={
             "filter.term": query,
             "filter.locationId": location,
-            "filter.limit": 12,
+            "filter.limit": 30,
+            "filter.fulfillment": "ais",
         },
         headers={"Authorization": f"Bearer {bearer_token()}"},
     )
