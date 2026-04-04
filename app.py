@@ -171,6 +171,9 @@ class HomeDashboard(ttk.Frame):
         super().__init__(master, padding=16)
         self.on_open = on_open
         self._weather_var = tk.StringVar(value="Loading weather...")
+        self._timer_var = tk.StringVar(value="Timer: 00:00:00")
+        self._timer_running = False
+        self._timer_seconds_left = 0
         self._build()
         self._fetch_weather_async()
 
@@ -230,10 +233,55 @@ class HomeDashboard(ttk.Frame):
         scroller.pack(side=tk.RIGHT, fill=tk.Y)
         self.alert_list.config(yscrollcommand=scroller.set)
 
-        # Weather display at the bottom
-        weather_frame = ttk.Frame(self)
-        weather_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
-        ttk.Label(weather_frame, textvariable=self._weather_var, font=("Segoe UI", 14), anchor="center").pack(fill=tk.X)
+        # Weather and kitchen timer display at the bottom
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
+
+        # Timer controls
+        timer_frame = ttk.Frame(bottom_frame)
+        timer_frame.pack(side=tk.LEFT, padx=(12, 0))
+        self._timer_hour = tk.IntVar(value=0)
+        self._timer_min = tk.IntVar(value=0)
+        self._timer_sec = tk.IntVar(value=0)
+        hour_spin = ttk.Spinbox(timer_frame, from_=0, to=23, width=2, textvariable=self._timer_hour, font=("Segoe UI", 12), state="readonly", justify="center")
+        min_spin = ttk.Spinbox(timer_frame, from_=0, to=59, width=2, textvariable=self._timer_min, font=("Segoe UI", 12), state="readonly", justify="center")
+        sec_spin = ttk.Spinbox(timer_frame, from_=0, to=59, width=2, textvariable=self._timer_sec, font=("Segoe UI", 12), state="readonly", justify="center")
+        hour_spin.grid(row=0, column=0)
+        ttk.Label(timer_frame, text=":").grid(row=0, column=1)
+        min_spin.grid(row=0, column=2)
+        ttk.Label(timer_frame, text=":").grid(row=0, column=3)
+        sec_spin.grid(row=0, column=4)
+        ttk.Button(timer_frame, text="Start", style="Accent.TButton", command=self._start_kitchen_timer).grid(row=0, column=5, padx=(6, 0))
+        ttk.Label(timer_frame, textvariable=self._timer_var, font=("Segoe UI", 14), anchor="w", width=10).grid(row=0, column=6, padx=(8, 0))
+
+        ttk.Label(bottom_frame, textvariable=self._weather_var, font=("Segoe UI", 14), anchor="center").pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    def _start_kitchen_timer(self):
+        # Always allow overwriting/resetting the timer
+        hours = self._timer_hour.get()
+        mins = self._timer_min.get()
+        secs = self._timer_sec.get()
+        self._timer_seconds_left = hours * 3600 + mins * 60 + secs
+        if self._timer_seconds_left <= 0:
+            self._timer_var.set("Timer: 00:00:00")
+            self._timer_running = False
+            return
+        self._timer_running = True
+        self._update_kitchen_timer()
+
+    def _update_kitchen_timer(self):
+        if self._timer_seconds_left > 0:
+            h = self._timer_seconds_left // 3600
+            m = (self._timer_seconds_left % 3600) // 60
+            s = self._timer_seconds_left % 60
+            self._timer_var.set(f"Timer: {h:02}:{m:02}:{s:02}")
+            self._timer_seconds_left -= 1
+            # Only continue if timer wasn't reset
+            if self._timer_running:
+                self.after(1000, self._update_kitchen_timer)
+        else:
+            self._timer_var.set("Time's up! 00:00:00")
+            self._timer_running = False
 
     def _fetch_weather_async(self):
         import threading
