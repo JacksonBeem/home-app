@@ -16,14 +16,23 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Callable, Optional
+from banner import TopBanner
 # from database import init_db_schema
 from .pantry_model import (
     add_item,
     remove_item,
     get_all_items,
-    get_item_lookup_by_id
+    get_item_lookup_by_id,
+    get_all_storage_categories,
+    assign_item_to_category,
 )
-from .gui_windows import ItemDetailsWindow, CategoriesWindow, FilterWindow
+from .gui_windows import (
+    ItemDetailsWindow,
+    CategoriesWindow,
+    FilterWindow,
+    UnknownBarcodeDialog,
+    AddItemWindow,
+)
 
 
 class PantryPage(ttk.Frame):
@@ -42,12 +51,16 @@ class PantryPage(ttk.Frame):
         on_home: Optional[Callable[[], None]] = None,
         padding: int = 0,  # keep the page tight to fit small screens
     ):
+        from ui_style import STYLE_CONFIG
         super().__init__(master, padding=padding)
         self.on_home = on_home
+        # self.configure(bg=STYLE_CONFIG["bg_main"])  # Not supported for ttk widgets
 
         self.mode = "add"
         self.current_category_filter_id: Optional[int] = None
+        self._barcode_by_tree_iid: dict[str, str] = {}
 
+        TopBanner(self, title="Pantry", on_home=self.on_home).pack(side=tk.TOP, fill=tk.X)
         self._setup_style()
         self._create_widgets()
 
@@ -190,36 +203,37 @@ class PantryPage(ttk.Frame):
     # --------- UI ---------
 
     def _create_widgets(self) -> None:
-        # Use grid so the center area expands and bottom stays visible on all screens
-        self.grid_rowconfigure(2, weight=1)   # list/card expands
-        self.grid_columnconfigure(0, weight=1)
+        # Use a main_frame packed into self, and use grid only inside main_frame
+        main_frame = ttk.Frame(self)
+        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        main_frame.grid_rowconfigure(2, weight=1)
+        main_frame.grid_columnconfigure(0, weight=1)
 
         # --------- Top row: Title + Mode ----------
-        top_frame = ttk.Frame(self)
+        top_frame = ttk.Frame(main_frame)
         top_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=(6, 0))
         top_frame.grid_columnconfigure(1, weight=1)
 
-        # Optional Home button (only shown when embedded in the home shell)
-        col = 0
-        if self.on_home is not None:
-            back_btn = ttk.Button(
-                top_frame,
-                text="\u2190 Home",
-                style="TopNav.TButton",
-                command=self.on_home,
-            )
-            back_btn.grid(row=0, column=col, sticky="w", padx=(0, 10))
-            col += 1
+        # col = 0
+        # if self.on_home is not None:
+        #     back_btn = ttk.Button(
+        #         top_frame,
+        #         text="\u2190 Home",
+        #         style="TopNav.TButton",
+        #         command=self.on_home,
+        #     )
+        #     back_btn.grid(row=0, column=col, sticky="w", padx=(0, 10))
+        #     col += 1
 
-        title_label = ttk.Label(top_frame, text="Pantry Inventory", style="Title.TLabel")
-        title_label.grid(row=0, column=col, sticky="w")
-        col += 1
+        # title_label = ttk.Label(top_frame, text="Pantry Inventory", style="Title.TLabel")
+        # title_label.grid(row=0, column=col, sticky="w")
+        # col += 1
 
         self.mode_label = ttk.Label(top_frame, text="", style="Mode.TLabel")
         self.mode_label.grid(row=0, column=2, sticky="e")
 
         # --------- Second row: Categories + Filter ----------
-        nav_frame = ttk.Frame(self)
+        nav_frame = ttk.Frame(main_frame)
         nav_frame.grid(row=1, column=0, sticky="ew", padx=12, pady=(4, 6))
         nav_frame.grid_columnconfigure(3, weight=1)
 
@@ -243,16 +257,18 @@ class PantryPage(ttk.Frame):
         self.filter_label.grid(row=0, column=2, sticky="w", padx=(6, 0))
 
         # --------- Center: Card with list ----------
-        card_frame = ttk.Frame(self, style="Card.TFrame", padding=10)
+        card_frame = ttk.Frame(main_frame, style="Card.TFrame", padding=10)
         card_frame.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 6))
         card_frame.grid_rowconfigure(0, weight=1)
         card_frame.grid_columnconfigure(0, weight=1)
 
+
+        # Use modern Custom.Treeview style for inventory list
         self.tree = ttk.Treeview(
             card_frame,
             columns=("name", "location", "age", "quantity"),
             show="headings",
-            style="Inventory.Treeview",
+            style="Custom.Treeview",
             selectmode="browse",
         )
         self.tree.heading("name", text="Food", anchor="w")
@@ -260,13 +276,13 @@ class PantryPage(ttk.Frame):
         self.tree.heading("age", text="Age", anchor="center")
         self.tree.heading("quantity", text="Qty", anchor="center")
 
-        # Start with sane defaults; we will auto-resize these on window resize
         self.tree.column("name", anchor="w", width=420, stretch=True)
         self.tree.column("location", anchor="center", width=150, stretch=False)
         self.tree.column("age", anchor="center", width=90, stretch=False)
         self.tree.column("quantity", anchor="center", width=70, stretch=False)
 
         self.tree.grid(row=0, column=0, sticky="nsew")
+
 
         scrollbar = ttk.Scrollbar(card_frame, orient="vertical", command=self.tree.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
@@ -275,16 +291,15 @@ class PantryPage(ttk.Frame):
         self.tree.bind("<Double-1>", self.on_item_activated)
         self.tree.bind("<Button-1>", self.on_tree_click, add="+")
 
-        # Auto-size columns to prevent horizontal overflow on small screens
         self.winfo_toplevel().bind("<Configure>", self._on_root_configure, add="+")
 
         # --------- Bottom: Add / Remove big buttons ----------
-        bottom_frame = ttk.Frame(self)
+        bottom_frame = ttk.Frame(main_frame)
         bottom_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(4, 10))
         bottom_frame.grid_columnconfigure(0, weight=1)
         bottom_frame.grid_columnconfigure(1, weight=1)
 
-        self.add_button = ttk.Button(
+        self.add_button = ttk.Button( 
             bottom_frame,
             text="Add Food",
             style="AddBig.TButton",
@@ -354,16 +369,21 @@ class PantryPage(ttk.Frame):
 
     # ---------- Time since scan formatting ----------
 
-    def _format_age(self, last_scanned: Optional[str]) -> str:
+    def _format_age(self, last_scanned) -> str:
         if not last_scanned:
             return "-"
-        try:
-            t = datetime.fromisoformat(last_scanned)
-        except ValueError:
-            return "-"
+        if isinstance(last_scanned, datetime):
+            t = last_scanned
+        else:
+            try:
+                t = datetime.fromisoformat(str(last_scanned))
+            except ValueError:
+                return "-"
 
         delta = datetime.now() - t
         seconds = int(delta.total_seconds())
+        if seconds < 0:
+            return "0s"
         if seconds < 60:
             return f"{seconds}s"
         minutes = seconds // 60
@@ -380,20 +400,31 @@ class PantryPage(ttk.Frame):
     def refresh_items(self) -> None:
         for row in self.tree.get_children():
             self.tree.delete(row)
+        self._barcode_by_tree_iid.clear()
 
         # get_all_items and get_all_item_lookups
         items = get_all_items(category_id=self.current_category_filter_id)
+        cat_map = {cid: name for cid, name in get_all_storage_categories()}
 
         for item in items:
             item_lookup = get_item_lookup_by_id(item.item_lookup_id)
             item_name = item_lookup.item_name if item_lookup else "Unknown Item"
             quantity = item.quantity if item.quantity is not None else 0
-            display_location = '-' #This will need to be completed when categories are available
-            age_text = '-'  # This will need to be completed when last_scanned is available
+            cat_id = getattr(item, "storage_categories_id", None)
+            display_location = cat_map.get(cat_id, "-") if cat_id is not None else "-"
+            age_text = self._format_age(getattr(item, "last_scanned", None))
+
+            barcode = str(getattr(item_lookup, "barcode", "") or "").strip()
+            iid = f"item-{item.item_id}"
+            if barcode:
+                self._barcode_by_tree_iid[iid] = barcode
+            else:
+                self._barcode_by_tree_iid[iid] = str(item.item_id)
+
             self.tree.insert(
                 "",
                 tk.END,
-                iid=getattr(item_lookup, 'barcode', None) or item.id,
+                iid=iid,
                 values=(
                     item_name,
                     display_location,
@@ -427,7 +458,16 @@ class PantryPage(ttk.Frame):
         if self.mode == "add":
             ok = add_item(barcode)
             if not ok:
-                messagebox.showwarning("Unknown barcode", f"No product found for barcode: {barcode}")
+                unknown_dialog = UnknownBarcodeDialog(self.winfo_toplevel(), barcode, self.STYLE_CONFIG)
+                self.wait_window(unknown_dialog)
+                if unknown_dialog.result:
+                    add_window = AddItemWindow(
+                        self.winfo_toplevel(),
+                        barcode,
+                        self.refresh_items,
+                        self.STYLE_CONFIG,
+                    )
+                    self.wait_window(add_window)
         else:
             ok = remove_item(barcode)
             if not ok:
@@ -451,10 +491,10 @@ class PantryPage(ttk.Frame):
 
         values = self.tree.item(rowid, "values")
         current_location = values[1] if len(values) >= 2 else "-"
-        barcode = rowid
-        self.show_location_menu(barcode, current_location, event)
+        barcode = self._barcode_by_tree_iid.get(rowid, rowid)
+        self.show_location_menu(rowid, barcode, current_location, event)
 
-    def show_location_menu(self, barcode: str, current_location: str, event) -> None:
+    def show_location_menu(self, row_iid: str, barcode: str, current_location: str, event) -> None:
         cats = get_all_storage_categories()
         if not cats:
             messagebox.showinfo(
@@ -468,21 +508,24 @@ class PantryPage(ttk.Frame):
 
         for cid, name in cats:
             label = f"\u2713 {name}" if current_location == name else name
-            menu.add_command(label=label, command=lambda cid=cid: self._set_location(barcode, cid))
+            menu.add_command(label=label, command=lambda cid=cid: self._set_location(row_iid, barcode, cid))
 
         menu.add_separator()
-        menu.add_command(label="Clear location", command=lambda: self._set_location(barcode, None))
+        menu.add_command(label="Clear location", command=lambda: self._set_location(row_iid, barcode, None))
 
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
 
-    def _set_location(self, barcode: str, category_id: Optional[int]) -> None:
+    def _set_location(self, row_iid: str, barcode: str, category_id: Optional[int]) -> None:
         assign_item_to_category(barcode, category_id)
         self.refresh_items()
-        self.tree.focus(barcode)
-        self.tree.selection_set(barcode)
+
+        # Try to keep focus on the same row when possible.
+        if row_iid in self.tree.get_children():
+            self.tree.focus(row_iid)
+            self.tree.selection_set(row_iid)
 
     # ---------- Toplevel window calls ----------
 
@@ -490,7 +533,7 @@ class PantryPage(ttk.Frame):
         selected = self.tree.focus()
         if not selected:
             return
-        barcode = selected
+        barcode = self._barcode_by_tree_iid.get(selected, selected)
         ItemDetailsWindow(self.winfo_toplevel(), barcode, self.refresh_items, self.STYLE_CONFIG)
 
     def open_categories_window(self) -> None:
@@ -531,3 +574,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

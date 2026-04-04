@@ -1,5 +1,5 @@
 # Example: models.py
-from sqlalchemy.types import Numeric
+from sqlalchemy.types import LargeBinary, Numeric
 from sqlalchemy import Boolean, Column, Date, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 import database
@@ -14,6 +14,7 @@ class Person(Base):
     last_name = Column(String(100))
     date_of_birth = Column(Date)
     gender = Column(String(50))
+    profile_picture = Column(LargeBinary)
 
 def create_tables():
     """Create all tables in the database using the engine from database.py."""
