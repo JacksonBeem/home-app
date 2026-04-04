@@ -1,3 +1,5 @@
+# Allow import from storeapp.nodb
+__all__ = ["StoreApp"]
 import tkinter as tk
 from tkinter import ttk
 import requests
@@ -173,14 +175,11 @@ FONT_UI   = ("Segoe UI", 10)
 FONT_BTN  = ("Segoe UI", 9, "bold")
 
 
-class StoreApp(tk.Tk):
 
-    def __init__(self):
-        super().__init__()
-        self.title("Kroger Search")
+class StoreApp(tk.Frame):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
         self.configure(bg=BG_MAIN)
-        self.geometry("1200x720")
-        self.minsize(900, 600)
 
         self.images        = []
         self.last_products = []
