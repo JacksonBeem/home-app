@@ -37,7 +37,10 @@ class HomeApp(tk.Tk):
         except ImportError:
             self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (unavailable)")
         #self._chores_page = ChoresPage(self, on_open=self._open_page)
-        self._family_page = FamilyPage(self, on_home=self.show_home)
+        self._family_page = PlaceholderPage(self, title="Family", subtitle="Members & preferences (coming soon)")
+
+        from storeapp.nodb import StoreApp
+        self._store_page = StoreApp(self)
         self._new_page = PlaceholderPage(self, title="Add", subtitle="Create a new module (coming soon)")
 
         self.show_home()
@@ -130,6 +133,7 @@ class HomeApp(tk.Tk):
             self._cooking_page,
             self._chores_page,
             self._family_page,
+            self._store_page,
             self._new_page,
         ):
             page.pack_forget()
@@ -157,6 +161,8 @@ class HomeApp(tk.Tk):
             self._chores_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
         elif key == "family":
             self._family_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
+        elif key == "store":
+            self._store_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
         elif key == "new":
             self._new_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
         else:
@@ -211,14 +217,16 @@ class HomeDashboard(ttk.Frame):
         btn_pantry = tile("Pantry", "pantry")
         btn_family = tile("Family", "family")
         btn_chores = tile("Chores", "chores")
+        btn_store = tile("Store", "store")
         btn_plus = tile("+", "new", style="TilePlus.TButton")
 
-        # Grid like the sketch
+        # Grid like the sketch (add Store in row 2, col 1)
         btn_cooking.grid(row=0, column=0, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_pantry.grid(row=0, column=1, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_family.grid(row=1, column=0, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_chores.grid(row=1, column=1, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_plus.grid(row=2, column=0, padx=14, pady=(14, 0), ipadx=8, ipady=tile_h)
+        btn_store.grid(row=2, column=1, padx=14, pady=(14, 0), ipadx=8, ipady=tile_h)
 
         # RIGHT SIDE: Alert List
         alert_frame = ttk.LabelFrame(main_content, text="Chore Alerts", padding=10)
