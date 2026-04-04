@@ -1,6 +1,6 @@
 # Example: models.py
 from sqlalchemy.types import Numeric
-from sqlalchemy import Column, Integer
+from sqlalchemy import Column, Integer, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 import database
 
@@ -11,6 +11,8 @@ class Item(Base):
     item_id = Column(Integer, primary_key=True)
     item_lookup_id = Column(Integer)
     quantity = Column(Numeric(10, 2), nullable=False)
+    storage_categories_id = Column(Integer, nullable=True)
+    last_scanned = Column(DateTime, nullable=True)
 
 def create_tables():
     """Create all tables in the database using the engine from database.py."""
