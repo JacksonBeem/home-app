@@ -7,9 +7,11 @@ The pantry module lives in pantry_app.py and can still be run standalone.
 """
 
 from __future__ import annotations
+import os
 import tkinter as tk
 from tkinter import ttk
 from ui_style import STYLE_CONFIG, apply_global_style
+import requests
 
 # from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
@@ -296,11 +298,9 @@ class HomeDashboard(ttk.Frame):
         threading.Thread(target=self._fetch_weather, daemon=True).start()
 
     def _fetch_weather(self):
-        import requests
         try:
-            # --- CONFIGURE YOUR CITY AND API KEY HERE ---
-            CITY = "Sterling Heights,US"
-            API_KEY = "placeholder"  # Replace with your OpenWeatherMap API key
+            CITY = os.getenv("WEATHER_CITY")
+            API_KEY = os.getenv("WEATHER_API_KEY")
             url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=imperial"
             resp = requests.get(url, timeout=8)
             resp.raise_for_status()
