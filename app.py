@@ -37,7 +37,7 @@ class HomeApp(tk.Tk):
         except ImportError:
             self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (unavailable)")
         #self._chores_page = ChoresPage(self, on_open=self._open_page)
-        self._family_page = PlaceholderPage(self, title="Family", subtitle="Members & preferences (coming soon)")
+        self._family_page = FamilyPage(self, on_home=self.show_home)
 
         from storeapp.nodb import StoreApp
         self._store_page = StoreApp(self)

@@ -2,6 +2,7 @@
 __all__ = ["StoreApp"]
 import tkinter as tk
 from tkinter import ttk
+from banner import TopBanner
 import requests
 import os
 from dotenv import load_dotenv
@@ -191,12 +192,18 @@ class StoreApp(tk.Frame):
     # ── UI ────────────────────────────────────────────────────────────────
 
     def create_ui(self):
-        # Header bar
+        # Navigation banner (reusable across all modules)
+        def go_home():
+            root = self.winfo_toplevel()
+            if hasattr(root, "show_home"):
+                root.show_home()
+        TopBanner(self, title="Store", on_home=go_home).pack(fill="x", side="top")
+
+        # Header bar (module-specific)
         header = tk.Frame(self, bg=BG_MAIN, pady=18)
         header.pack(fill="x", padx=28)
-
         tk.Label(
-            header, text="🛒  Kroger Search",
+            header, text="Kroger Search",
             font=("Segoe UI", 18, "bold"),
             bg=BG_MAIN, fg=TEXT,
         ).pack(side="left")
