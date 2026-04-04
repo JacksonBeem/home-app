@@ -214,20 +214,20 @@ class PantryPage(ttk.Frame):
         top_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=(6, 0))
         top_frame.grid_columnconfigure(1, weight=1)
 
-        col = 0
-        if self.on_home is not None:
-            back_btn = ttk.Button(
-                top_frame,
-                text="\u2190 Home",
-                style="TopNav.TButton",
-                command=self.on_home,
-            )
-            back_btn.grid(row=0, column=col, sticky="w", padx=(0, 10))
-            col += 1
+        # col = 0
+        # if self.on_home is not None:
+        #     back_btn = ttk.Button(
+        #         top_frame,
+        #         text="\u2190 Home",
+        #         style="TopNav.TButton",
+        #         command=self.on_home,
+        #     )
+        #     back_btn.grid(row=0, column=col, sticky="w", padx=(0, 10))
+        #     col += 1
 
-        title_label = ttk.Label(top_frame, text="Pantry Inventory", style="Title.TLabel")
-        title_label.grid(row=0, column=col, sticky="w")
-        col += 1
+        # title_label = ttk.Label(top_frame, text="Pantry Inventory", style="Title.TLabel")
+        # title_label.grid(row=0, column=col, sticky="w")
+        # col += 1
 
         self.mode_label = ttk.Label(top_frame, text="", style="Mode.TLabel")
         self.mode_label.grid(row=0, column=2, sticky="e")
