@@ -170,8 +170,9 @@ class HomeDashboard(ttk.Frame):
         from ui_style import STYLE_CONFIG
         super().__init__(master, padding=16)
         self.on_open = on_open
-        # self.configure(bg=STYLE_CONFIG["bg_main"])  # Not supported for ttk widgets
+        self._weather_var = tk.StringVar(value="Loading weather...")
         self._build()
+        self._fetch_weather_async()
 
     def _build(self) -> None:
         # Header
@@ -228,6 +229,33 @@ class HomeDashboard(ttk.Frame):
         scroller = ttk.Scrollbar(alert_frame, orient=tk.VERTICAL, command=self.alert_list.yview)
         scroller.pack(side=tk.RIGHT, fill=tk.Y)
         self.alert_list.config(yscrollcommand=scroller.set)
+
+        # Weather display at the bottom
+        weather_frame = ttk.Frame(self)
+        weather_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
+        ttk.Label(weather_frame, textvariable=self._weather_var, font=("Segoe UI", 14), anchor="center").pack(fill=tk.X)
+
+    def _fetch_weather_async(self):
+        import threading
+        threading.Thread(target=self._fetch_weather, daemon=True).start()
+
+    def _fetch_weather(self):
+        import requests
+        try:
+            # --- CONFIGURE YOUR CITY AND API KEY HERE ---
+            CITY = "Sterling Heights,US"
+            API_KEY = "placeholder"  # Replace with your OpenWeatherMap API key
+            url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=imperial"
+            resp = requests.get(url, timeout=8)
+            resp.raise_for_status()
+            data = resp.json()
+            temp = data['main']['temp']
+            desc = data['weather'][0]['description'].capitalize()
+            city = data['name']
+            weather_str = f"Weather in {city}: {temp:.0f}°F, {desc}"
+        except Exception as e:
+            weather_str = f"Weather unavailable."
+        self._weather_var.set(weather_str)
 
     def refresh_alerts(self):
         """Fetches chores and filters for anything NOT 'Daily'."""
