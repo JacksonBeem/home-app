@@ -102,11 +102,11 @@ class CookingPage(ttk.Frame):
         RecipeListWindow(self)
 
     def _on_recipe_open(self, event):
-        selected = self.recipe_tree.selection()
-        if not selected:
+        selection = self.recipe_listbox.curselection()
+        if not selection:
             return
-        item = selected[0]
-        name = self.recipe_tree.item(item, "values")[0]
+        index = selection[0]
+        name = self.recipe_listbox.get(index)
         # Find the recipe object by name (could be improved with unique IDs)
         all_recipes = self.manager.get_all_recipes()
         recipe = next((r for r in all_recipes if getattr(r, "recipe_name", "") == name), None)
