@@ -7,8 +7,11 @@ The pantry module lives in pantry_app.py and can still be run standalone.
 """
 
 from __future__ import annotations
+import os
 import tkinter as tk
 from tkinter import ttk
+from ui_style import STYLE_CONFIG, apply_global_style
+import requests
 
 # from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
@@ -22,7 +25,7 @@ class HomeApp(tk.Tk):
         super().__init__()
         self.title("Welcome Home")
         self.geometry("1024x600")
-        self.option_add("*Font", ("Segoe UI", 14))
+        apply_global_style(self)
 
         # Keep the same modern styling palette as the pantry module.
         self._setup_style()
@@ -37,6 +40,9 @@ class HomeApp(tk.Tk):
             self._cooking_page = PlaceholderPage(self, title="Cooking", subtitle="Recipe management (unavailable)")
         #self._chores_page = ChoresPage(self, on_open=self._open_page)
         self._family_page = FamilyPage(self, on_home=self.show_home)
+
+        from storeapp.nodb import StoreApp
+        self._store_page = StoreApp(self)
         self._new_page = PlaceholderPage(self, title="Add", subtitle="Create a new module (coming soon)")
 
         self.show_home()
@@ -60,7 +66,7 @@ class HomeApp(tk.Tk):
             "stroke": "#d0d7e2",
         }
 
-        self.configure(bg=self.STYLE_CONFIG["bg_main"])
+        # self.configure(bg=self.STYLE_CONFIG["bg_main"])  # Not supported for ttk widgets
 
         bg_main = self.STYLE_CONFIG["bg_main"]
         bg_panel = self.STYLE_CONFIG["bg_panel"]
@@ -129,6 +135,7 @@ class HomeApp(tk.Tk):
             self._cooking_page,
             self._chores_page,
             self._family_page,
+            self._store_page,
             self._new_page,
         ):
             page.pack_forget()
@@ -156,6 +163,8 @@ class HomeApp(tk.Tk):
             self._chores_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
         elif key == "family":
             self._family_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
+        elif key == "store":
+            self._store_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
         elif key == "new":
             self._new_page.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=18)
         else:
@@ -166,9 +175,15 @@ class HomeDashboard(ttk.Frame):
     # Main tile dashboard.
 
     def __init__(self, master: tk.Misc, *, on_open):
-        super().__init__(master)
+        from ui_style import STYLE_CONFIG
+        super().__init__(master, padding=16)
         self.on_open = on_open
+        self._weather_var = tk.StringVar(value="Loading weather...")
+        self._timer_var = tk.StringVar(value="Timer: 00:00:00")
+        self._timer_running = False
+        self._timer_seconds_left = 0
         self._build()
+        self._fetch_weather_async()
 
     def _build(self) -> None:
         # Header
@@ -204,14 +219,16 @@ class HomeDashboard(ttk.Frame):
         btn_pantry = tile("Pantry", "pantry")
         btn_family = tile("Family", "family")
         btn_chores = tile("Chores", "chores")
+        btn_store = tile("Store", "store")
         btn_plus = tile("+", "new", style="TilePlus.TButton")
 
-        # Grid like the sketch
+        # Grid like the sketch (add Store in row 2, col 1)
         btn_cooking.grid(row=0, column=0, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_pantry.grid(row=0, column=1, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_family.grid(row=1, column=0, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_chores.grid(row=1, column=1, padx=14, pady=14, ipadx=8, ipady=tile_h)
         btn_plus.grid(row=2, column=0, padx=14, pady=(14, 0), ipadx=8, ipady=tile_h)
+        btn_store.grid(row=2, column=1, padx=14, pady=(14, 0), ipadx=8, ipady=tile_h)
 
         # RIGHT SIDE: Alert List
         alert_frame = ttk.LabelFrame(main_content, text="Chore Alerts", padding=10)
@@ -225,6 +242,76 @@ class HomeDashboard(ttk.Frame):
         scroller = ttk.Scrollbar(alert_frame, orient=tk.VERTICAL, command=self.alert_list.yview)
         scroller.pack(side=tk.RIGHT, fill=tk.Y)
         self.alert_list.config(yscrollcommand=scroller.set)
+
+        # Weather and kitchen timer display at the bottom
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
+
+        # Timer controls
+        timer_frame = ttk.Frame(bottom_frame)
+        timer_frame.pack(side=tk.LEFT, padx=(12, 0))
+        self._timer_hour = tk.IntVar(value=0)
+        self._timer_min = tk.IntVar(value=0)
+        self._timer_sec = tk.IntVar(value=0)
+        hour_spin = ttk.Spinbox(timer_frame, from_=0, to=23, width=2, textvariable=self._timer_hour, font=("Segoe UI", 12), state="readonly", justify="center")
+        min_spin = ttk.Spinbox(timer_frame, from_=0, to=59, width=2, textvariable=self._timer_min, font=("Segoe UI", 12), state="readonly", justify="center")
+        sec_spin = ttk.Spinbox(timer_frame, from_=0, to=59, width=2, textvariable=self._timer_sec, font=("Segoe UI", 12), state="readonly", justify="center")
+        hour_spin.grid(row=0, column=0)
+        ttk.Label(timer_frame, text=":").grid(row=0, column=1)
+        min_spin.grid(row=0, column=2)
+        ttk.Label(timer_frame, text=":").grid(row=0, column=3)
+        sec_spin.grid(row=0, column=4)
+        ttk.Button(timer_frame, text="Start", style="Accent.TButton", command=self._start_kitchen_timer).grid(row=0, column=5, padx=(6, 0))
+        ttk.Label(timer_frame, textvariable=self._timer_var, font=("Segoe UI", 14), anchor="w", width=10).grid(row=0, column=6, padx=(8, 0))
+
+        ttk.Label(bottom_frame, textvariable=self._weather_var, font=("Segoe UI", 14), anchor="center").pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    def _start_kitchen_timer(self):
+        # Always allow overwriting/resetting the timer
+        hours = self._timer_hour.get()
+        mins = self._timer_min.get()
+        secs = self._timer_sec.get()
+        self._timer_seconds_left = hours * 3600 + mins * 60 + secs
+        if self._timer_seconds_left <= 0:
+            self._timer_var.set("Timer: 00:00:00")
+            self._timer_running = False
+            return
+        self._timer_running = True
+        self._update_kitchen_timer()
+
+    def _update_kitchen_timer(self):
+        if self._timer_seconds_left > 0:
+            h = self._timer_seconds_left // 3600
+            m = (self._timer_seconds_left % 3600) // 60
+            s = self._timer_seconds_left % 60
+            self._timer_var.set(f"Timer: {h:02}:{m:02}:{s:02}")
+            self._timer_seconds_left -= 1
+            # Only continue if timer wasn't reset
+            if self._timer_running:
+                self.after(1000, self._update_kitchen_timer)
+        else:
+            self._timer_var.set("Time's up! 00:00:00")
+            self._timer_running = False
+
+    def _fetch_weather_async(self):
+        import threading
+        threading.Thread(target=self._fetch_weather, daemon=True).start()
+
+    def _fetch_weather(self):
+        try:
+            CITY = os.getenv("WEATHER_CITY")
+            API_KEY = os.getenv("WEATHER_API_KEY")
+            url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=imperial"
+            resp = requests.get(url, timeout=8)
+            resp.raise_for_status()
+            data = resp.json()
+            temp = data['main']['temp']
+            desc = data['weather'][0]['description'].capitalize()
+            city = data['name']
+            weather_str = f"Weather in {city}: {temp:.0f}°F, {desc}"
+        except Exception as e:
+            weather_str = f"Weather unavailable."
+        self._weather_var.set(weather_str)
 
     def refresh_alerts(self):
         """Fetches chores and filters for anything NOT 'Daily'."""
@@ -282,17 +369,35 @@ class PlaceholderPage(ttk.Frame):
         lbl = ttk.Label(body, text=self.subtitle, style="Filter.TLabel")
         lbl.pack(side=tk.TOP, anchor="w")
 
-    def _go_home(self) -> None:
-        root = self.winfo_toplevel()
-        if hasattr(root, "show_home"):
-            root.show_home()
+    def _build(self) -> None:
+        from banner import TopBanner
+        TopBanner(self, title="Welcome Home").pack(side=tk.TOP, fill=tk.X)
+        subtitle = ttk.Label(self, text="Tap a tile to open a module", style="HomeSub.TLabel")
+        subtitle.pack(side=tk.TOP, anchor="w", padx=(18, 0), pady=(0, 12))
 
+        # Main navigation buttons
+        nav = ttk.Frame(self)
+        nav.pack(side=tk.TOP, pady=40)
+        btns = [
+            ("Pantry", lambda: self.on_open("pantry")),
+            ("Chores", lambda: self.on_open("chores")),
+            ("Cooking", lambda: self.on_open("cooking")),
+            ("Family", lambda: self.on_open("family")),
+        ]
+        for i, (label, cmd) in enumerate(btns):
+            b = ttk.Button(nav, text=label, command=cmd, width=16)
+            b.grid(row=0, column=i, padx=16, pady=8)
+
+# Restore _go_home method and main entry point
+def _go_home(self) -> None:
+    root = self.winfo_toplevel()
+    if hasattr(root, "show_home"):
+        root.show_home()
 
 def main() -> None:
     #init_db_schema()
     app = HomeApp()
     app.mainloop()
-
 
 if __name__ == "__main__":
     main()

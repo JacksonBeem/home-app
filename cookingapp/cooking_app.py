@@ -6,11 +6,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from cookingapp.cooking_model import RecipeManager
 from cookingapp.gui_windows import RecipeDetailsWindow, RecipeListWindow
+from banner import TopBanner
 # Embeddable CookingPage for HomeApp
 global FAVORITE_RECIPES
 class CookingPage(ttk.Frame):
     """Embeddable Cooking UI (like PantryPage)."""
     def __init__(self, master, *, on_home=None, padding=0):
+        from ui_style import STYLE_CONFIG
         super().__init__(master, padding=padding)
         self.on_home = on_home
         self.manager = RecipeManager()
@@ -25,46 +27,16 @@ class CookingPage(ttk.Frame):
         style.configure("TopNav.TButton", font=("Segoe UI", 12), padding=(10, 6))
 
     def _create_widgets(self):
-        # Top row: Home button, Title, Mode
-        top_frame = ttk.Frame(self)
-        top_frame.pack(side=tk.TOP, fill=tk.X, padx=12, pady=(6, 0))
-        col = 0
-        if self.on_home is not None:
-            back_btn = ttk.Button(
-                top_frame,
-                text="\u2190 Home",
-                style="TopNav.TButton",
-                command=self.on_home,
-            )
-            back_btn.grid(row=0, column=col, sticky="w", padx=(0, 10))
-            col += 1
-        title_label = ttk.Label(top_frame, text="Cooking", style="Title.TLabel")
-        title_label.grid(row=0, column=col, sticky="w")
-        col += 1
-        self.mode_label = ttk.Label(top_frame, text="", style="Mode.TLabel")
-        self.mode_label.grid(row=0, column=2, sticky="e")
+        # Consistent top banner
+        TopBanner(self, title="Cooking", on_home=self.on_home).pack(side=tk.TOP, fill=tk.X)
 
         # Second row: Person filter, Add/View buttons
         nav_frame = ttk.Frame(self)
         nav_frame.pack(side=tk.TOP, fill=tk.X, padx=12, pady=(4, 6))
-        nav_frame.grid_columnconfigure(4, weight=1)
+        nav_frame.grid_columnconfigure(5, weight=1)
 
         # Person dropdown
         from models.person import Person
-        from sqlalchemy.orm import sessionmaker
-        from database import engine
-        Session = sessionmaker(bind=engine)
-        session = Session()
-
-        def get_selected_person():
-            global FAVORITE_RECIPES
-            selected_name = self.person_var.get()
-            selected_person = next((p for p in people if f"{p.first_name} {p.last_name}" == selected_name), None)
-            if selected_person:
-                person_id = selected_person.person_id
-            FAVORITE_RECIPES = self.manager.get_favorite_recipes(person_id)
-            self.refresh_recipes(FAVORITE_RECIPES)
-
         people = self.manager.get_all_people()
         self.person_var = tk.StringVar()
         person_names = [f"{p.first_name} {p.last_name}" for p in people]
@@ -72,21 +44,44 @@ class CookingPage(ttk.Frame):
         self.person_dropdown.grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.person_dropdown.set(person_names[0] if person_names else "")
 
-        ttk.Button(nav_frame, text="Show All Recipes", style="TopNav.TButton", command=lambda: self.refresh_recipes()).grid(row=0, column=1, sticky="w", padx=(0, 8))
-        ttk.Button(nav_frame, text="Show Favorites", style="TopNav.TButton", command=lambda: get_selected_person()).grid(row=0, column=2, sticky="w", padx=(0, 8))
+        def get_selected_person():
+            global FAVORITE_RECIPES
+            selected_name = self.person_var.get()
+            selected_person = next((p for p in people if f"{p.first_name} {p.last_name}" == selected_name), None)
+            if selected_person:
+                person_id = selected_person.person_id
+                FAVORITE_RECIPES = self.manager.get_favorite_recipes(person_id)
+                self.refresh_recipes(FAVORITE_RECIPES)
+
+        # Buttons
+        ttk.Button(nav_frame, text="Show All Recipes", style="Accent.TButton", command=lambda: self.refresh_recipes()).grid(row=0, column=1, sticky="w", padx=(0, 8))
+        ttk.Button(nav_frame, text="Show Favorites", style="Secondary.TButton", command=get_selected_person).grid(row=0, column=2, sticky="w", padx=(0, 8))
 
         # Recipe name textbox
         self.recipe_name_var = tk.StringVar()
         self.recipe_name_entry = ttk.Entry(nav_frame, textvariable=self.recipe_name_var, width=20)
         self.recipe_name_entry.grid(row=0, column=3, sticky="w", padx=(0, 8))
+        self._placeholder = "Enter recipe or category..."
+        self.recipe_name_entry.insert(0, self._placeholder)
+        self.recipe_name_entry.configure(foreground="#888")
+
+        def on_entry_focus_in(event):
+            if self.recipe_name_entry.get() == self._placeholder:
+                self.recipe_name_entry.delete(0, tk.END)
+                self.recipe_name_entry.configure(foreground="#000")
+
+        def on_entry_focus_out(event):
+            if not self.recipe_name_entry.get():
+                self.recipe_name_entry.insert(0, self._placeholder)
+                self.recipe_name_entry.configure(foreground="#888")
+
+        self.recipe_name_entry.bind("<FocusIn>", on_entry_focus_in)
+        self.recipe_name_entry.bind("<FocusOut>", on_entry_focus_out)
 
         # Add Recipe button
         ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=lambda: self.manager.fetch_recipe(self.recipe_name_var.get())).grid(row=0, column=4, sticky="w", padx=(0, 8))
-
-        # Spacer
-        if self.on_home:
-            ttk.Button(nav_frame, text="Home", style="TopNav.TButton", command=self.on_home).grid(row=0, column=4, sticky="e", padx=(0, 4))
-
+        # Category button (gets 10 random recipes from that category)
+        ttk.Button(nav_frame, text="Random Recipes from Category", style="TopNav.TButton", command=lambda: self.manager.fetch_random_by_category(self.recipe_name_var.get())).grid(row=0, column=5, sticky="w", padx=(0, 8))
         # Recipe list
         self.recipe_listbox = tk.Listbox(self, height=10)
         self.recipe_listbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
@@ -107,11 +102,16 @@ class CookingPage(ttk.Frame):
         RecipeListWindow(self)
 
     def _on_recipe_open(self, event):
-        idx = self.recipe_listbox.curselection()
-        if not idx:
+        selection = self.recipe_listbox.curselection()
+        if not selection:
             return
-        recipe = self.manager.get_all_recipes()[idx[0]]
-        RecipeDetailsWindow(self, recipe=recipe)
+        index = selection[0]
+        name = self.recipe_listbox.get(index)
+        # Find the recipe object by name (could be improved with unique IDs)
+        all_recipes = self.manager.get_all_recipes()
+        recipe = next((r for r in all_recipes if getattr(r, "recipe_name", "") == name), None)
+        if recipe:
+            RecipeDetailsWindow(self, recipe=recipe)
 
 
 # Standalone runner for CookingApp
