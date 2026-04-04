@@ -61,37 +61,42 @@ class CookingPage(ttk.Frame):
         self.recipe_name_var = tk.StringVar()
         self.recipe_name_entry = ttk.Entry(nav_frame, textvariable=self.recipe_name_var, width=20)
         self.recipe_name_entry.grid(row=0, column=3, sticky="w", padx=(0, 8))
+        self._placeholder = "Enter recipe or category..."
+        self.recipe_name_entry.insert(0, self._placeholder)
+        self.recipe_name_entry.configure(foreground="#888")
+
+        def on_entry_focus_in(event):
+            if self.recipe_name_entry.get() == self._placeholder:
+                self.recipe_name_entry.delete(0, tk.END)
+                self.recipe_name_entry.configure(foreground="#000")
+
+        def on_entry_focus_out(event):
+            if not self.recipe_name_entry.get():
+                self.recipe_name_entry.insert(0, self._placeholder)
+                self.recipe_name_entry.configure(foreground="#888")
+
+        self.recipe_name_entry.bind("<FocusIn>", on_entry_focus_in)
+        self.recipe_name_entry.bind("<FocusOut>", on_entry_focus_out)
 
         # Add Recipe button
-        ttk.Button(nav_frame, text="Add Recipe", style="Accent.TButton", command=lambda: self.manager.fetch_recipe(self.recipe_name_var.get())).grid(row=0, column=4, sticky="w", padx=(0, 8))
-
-        # # Home button (if on_home is provided)
-        # if self.on_home:
-        #     ttk.Button(nav_frame, text="Home", style="Secondary.TButton", command=self.on_home).grid(row=0, column=5, sticky="e", padx=(0, 4))
-
-        # Recipe list (modern Treeview)
-        tree_frame = ttk.Frame(self)
-        tree_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-        columns = ("name",)
-        self.recipe_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", style="Custom.Treeview")
-        self.recipe_tree.heading("name", text="Recipe Name")
-        self.recipe_tree.pack(fill=tk.BOTH, expand=True)
-        self.recipe_tree.bind("<Double-1>", self._on_recipe_open)
+        ttk.Button(nav_frame, text="Add Recipe", style="TopNav.TButton", command=lambda: self.manager.fetch_recipe(self.recipe_name_var.get())).grid(row=0, column=4, sticky="w", padx=(0, 8))
+        # Category button (gets 10 random recipes from that category)
+        ttk.Button(nav_frame, text="Random Recipes from Category", style="TopNav.TButton", command=lambda: self.manager.fetch_random_by_category(self.recipe_name_var.get())).grid(row=0, column=5, sticky="w", padx=(0, 8))
+        # Recipe list
+        self.recipe_listbox = tk.Listbox(self, height=10)
+        self.recipe_listbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        self.recipe_listbox.bind("<Double-Button-1>", self._on_recipe_open)
         self.refresh_recipes()
 
     def refresh_recipes(self, favorite_recipes=None):
-        # Clear the treeview
-        for row in self.recipe_tree.get_children():
-            self.recipe_tree.delete(row)
-        # Choose data source
-        recipes = favorite_recipes if favorite_recipes is not None else self.manager.get_all_recipes()
-        # Insert recipes with alternating row colors
-        for idx, recipe in enumerate(recipes):
-            name = getattr(recipe, "recipe_name", "(Unnamed Recipe)")
-            tag = "alt" if idx % 2 else "norm"
-            self.recipe_tree.insert("", "end", values=(name,), tags=(tag,))
-        self.recipe_tree.tag_configure("alt", background="#f0f4fa")
-        self.recipe_tree.tag_configure("norm", background="#ffffff")
+        if favorite_recipes is not None:
+            self.recipe_listbox.delete(0, tk.END)
+            for recipe in favorite_recipes:
+                self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
+        else:
+            self.recipe_listbox.delete(0, tk.END)
+            for recipe in self.manager.get_all_recipes():
+                self.recipe_listbox.insert(tk.END, getattr(recipe, "recipe_name", "(Unnamed Recipe)"))
 
     def _open_recipe_list(self):
         RecipeListWindow(self)
