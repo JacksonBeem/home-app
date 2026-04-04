@@ -9,6 +9,7 @@ The pantry module lives in pantry_app.py and can still be run standalone.
 from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
+from ui_style import STYLE_CONFIG, apply_global_style
 
 # from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
@@ -22,7 +23,7 @@ class HomeApp(tk.Tk):
         super().__init__()
         self.title("Welcome Home")
         self.geometry("1024x600")
-        self.option_add("*Font", ("Segoe UI", 14))
+        apply_global_style(self)
 
         # Keep the same modern styling palette as the pantry module.
         self._setup_style()
@@ -60,7 +61,7 @@ class HomeApp(tk.Tk):
             "stroke": "#d0d7e2",
         }
 
-        self.configure(bg=self.STYLE_CONFIG["bg_main"])
+        # self.configure(bg=self.STYLE_CONFIG["bg_main"])  # Not supported for ttk widgets
 
         bg_main = self.STYLE_CONFIG["bg_main"]
         bg_panel = self.STYLE_CONFIG["bg_panel"]
@@ -166,8 +167,10 @@ class HomeDashboard(ttk.Frame):
     # Main tile dashboard.
 
     def __init__(self, master: tk.Misc, *, on_open):
-        super().__init__(master)
+        from ui_style import STYLE_CONFIG
+        super().__init__(master, padding=16)
         self.on_open = on_open
+        # self.configure(bg=STYLE_CONFIG["bg_main"])  # Not supported for ttk widgets
         self._build()
 
     def _build(self) -> None:
@@ -282,17 +285,35 @@ class PlaceholderPage(ttk.Frame):
         lbl = ttk.Label(body, text=self.subtitle, style="Filter.TLabel")
         lbl.pack(side=tk.TOP, anchor="w")
 
-    def _go_home(self) -> None:
-        root = self.winfo_toplevel()
-        if hasattr(root, "show_home"):
-            root.show_home()
+    def _build(self) -> None:
+        from banner import TopBanner
+        TopBanner(self, title="Welcome Home").pack(side=tk.TOP, fill=tk.X)
+        subtitle = ttk.Label(self, text="Tap a tile to open a module", style="HomeSub.TLabel")
+        subtitle.pack(side=tk.TOP, anchor="w", padx=(18, 0), pady=(0, 12))
 
+        # Main navigation buttons
+        nav = ttk.Frame(self)
+        nav.pack(side=tk.TOP, pady=40)
+        btns = [
+            ("Pantry", lambda: self.on_open("pantry")),
+            ("Chores", lambda: self.on_open("chores")),
+            ("Cooking", lambda: self.on_open("cooking")),
+            ("Family", lambda: self.on_open("family")),
+        ]
+        for i, (label, cmd) in enumerate(btns):
+            b = ttk.Button(nav, text=label, command=cmd, width=16)
+            b.grid(row=0, column=i, padx=16, pady=8)
+
+# Restore _go_home method and main entry point
+def _go_home(self) -> None:
+    root = self.winfo_toplevel()
+    if hasattr(root, "show_home"):
+        root.show_home()
 
 def main() -> None:
     #init_db_schema()
     app = HomeApp()
     app.mainloop()
-
 
 if __name__ == "__main__":
     main()
