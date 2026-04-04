@@ -3,9 +3,12 @@ from operator import index
 from random import choice
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, scrolledtext
-from .family_model import get_favorites_for_person
+
+from models.recipe import Recipe
+from .family_model import get_favorite_by_id, get_favorites_for_person, writeprofilepicturetodb
 from tkinter import filedialog
 from PIL import Image, ImageTk
+import io
 from .family_model import get_all_members, add_member, delete_member, update_member
 
 # Main UI class for displaying and managing family members
@@ -111,7 +114,8 @@ class FamilyPage(ttk.Frame):
             widget.destroy()
         # Fetch all members from database
         members = get_all_members()
-        # Create a UI card for each member
+        # Keep references to PhotoImage objects to avoid garbage collection
+        self._photo_refs = {}
         for m in members:
             # Container box representing one member
             card = ttk.Frame(self.scrollable_frame, padding=15, relief="solid", borderwidth=1)
@@ -122,9 +126,13 @@ class FamilyPage(ttk.Frame):
             img_frame = ttk.Frame(card, width=170, height=170, relief="solid", borderwidth=1)
             img_frame.pack_propagate(False)
             img_frame.pack(side=tk.LEFT, padx=(40, 25))
-            # Show uploaded image if it exists
-            if m.person_id in self.member_photos:
-                img_label = tk.Label(img_frame, image=self.member_photos[m.person_id], bd=0, highlightthickness=0)
+
+            if m.profile_picture:
+                img = Image.open(io.BytesIO(m.profile_picture))
+                img = img.resize((170, 170), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self._photo_refs[m.person_id] = photo
+                img_label = tk.Label(img_frame, image=photo, bd=0, highlightthickness=0)
                 img_label.place(x=0, y=0, relwidth=1, relheight=1)
             else:
                 # Button to upload profile picture for this member
@@ -148,7 +156,7 @@ class FamilyPage(ttk.Frame):
                 ttk.Label(info_frame, text="Favorites:", font=("Segoe UI", 12, "italic")).pack(anchor="w")
                 # Display numbered list of favorite foods
                 for i, f in enumerate(favorites, start=1):
-                    ttk.Label(info_frame, text=f"{i}.) {f.food_name}").pack(anchor="w")
+                    ttk.Label(info_frame, text=f"{i}.) {get_favorite_by_id(f.recipe_id)}").pack(anchor="w")
 
     # Handles adding a new member through user input
     def _on_add_click(self):
@@ -223,59 +231,93 @@ class FamilyPage(ttk.Frame):
 
     # Adds a favorite food to a selected member
     def _on_assign_favorite(self):
-
         parent = self.winfo_toplevel()
 
         person_id = simpledialog.askinteger("Favorite Food", "Enter Person ID:", parent=parent)
         if not person_id:
             return
 
-        food = simpledialog.askstring("Favorite Food", "Enter favorite food:", parent=parent)
-        if not food:
+        # Import here to avoid circular imports
+        from .family_model import getallrecipes, assign_favorite_food
+
+        # Fetch all recipes
+        recipes = getallrecipes()
+        if not recipes:
+            messagebox.showerror("Error", "No recipes found.")
             return
 
-        from .family_model import assign_favorite_food
+        # Create a dialog window for recipe selection
+        dialog = tk.Toplevel(parent)
+        dialog.title("Select Favorite Food")
+        dialog.grab_set()
 
-        assign_favorite_food(person_id, food)
+        tk.Label(dialog, text="Select favorite food:").pack(padx=10, pady=10)
 
-        self.refresh_list()
+        recipe_names = [r.recipe_name for r in recipes]
+        recipe_ids = [r.recipe_id for r in recipes]
 
-        messagebox.showinfo("Success", "Favorite added!")
+        selected_var = tk.StringVar(value=recipe_names[0])
+        combo = ttk.Combobox(dialog, textvariable=selected_var, values=recipe_names, state="readonly")
+        combo.pack(padx=10, pady=10)
+
+        def on_ok():
+            idx = recipe_names.index(selected_var.get())
+            food_id = recipe_ids[idx]
+            assign_favorite_food(person_id, food_id)
+            dialog.destroy()
+            self.refresh_list()
+            messagebox.showinfo("Success", "Favorite added!")
+
+        ok_btn = ttk.Button(dialog, text="OK", command=on_ok)
+        ok_btn.pack(pady=(0, 10))
+
+        dialog.wait_window()
 
     # Removes a specific favorite food based on user input
     def _on_remove_favorite(self):
-
         parent = self.winfo_toplevel()
 
         person_id = simpledialog.askinteger("Remove Favorite", "Enter Person ID:", parent=parent)
         if not person_id:
             return
 
-        food_num = simpledialog.askinteger("Remove Favorite", "Enter food number:", parent=parent)
-        if not food_num:
-            return
-
-        from .family_model import get_favorites_for_person, delete_favorite_by_id
-        # Get current favorites to match user-selected number
+        from .family_model import get_favorites_for_person, get_favorite_by_id, delete_favorite_by_id
         favorites = get_favorites_for_person(person_id)
-
-        if food_num < 1 or food_num > len(favorites):
-            messagebox.showerror("Error", "Invalid food number")
+        if not favorites:
+            messagebox.showerror("Error", "No favorites found for this person.")
             return
 
-        food = favorites[food_num - 1]
+        # Get display names for favorites
+        favorite_names = [get_favorite_by_id(f.recipe_id) for f in favorites]
 
-        success = delete_favorite_by_id(food.id)
+        dialog = tk.Toplevel(parent)
+        dialog.title("Remove Favorite Food")
+        dialog.grab_set()
 
-        if success:
-            self.refresh_list()
-            messagebox.showinfo("Success", "Favorite removed!")
-        else:
-            messagebox.showerror("Error", "Delete failed.")
+        tk.Label(dialog, text="Select favorite food to remove:").pack(padx=10, pady=10)
+
+        selected_var = tk.StringVar(value=favorite_names[0])
+        combo = ttk.Combobox(dialog, textvariable=selected_var, values=favorite_names, state="readonly")
+        combo.pack(padx=10, pady=10)
+
+        def on_ok():
+            idx = favorite_names.index(selected_var.get())
+            food_id = favorites[idx].recipe_id
+            success = delete_favorite_by_id(food_id)
+            dialog.destroy()
+            if success:
+                self.refresh_list()
+                messagebox.showinfo("Success", "Favorite removed!")
+            else:
+                messagebox.showerror("Error", "Delete failed.")
+
+        ok_btn = ttk.Button(dialog, text="OK", command=on_ok)
+        ok_btn.pack(pady=(0, 10))
+
+        dialog.wait_window()
 
     # Allows user to upload and display a profile image
     def _upload_photo(self, person_id):
-
         file_path = filedialog.askopenfilename(
             filetypes=[("Image Files", "*.png *.jpg *.jpeg")]
         )
@@ -286,7 +328,12 @@ class FamilyPage(ttk.Frame):
         # Resize image to fit UI box properly
         img = img.resize((170, 170), Image.Resampling.LANCZOS)
         photo = ImageTk.PhotoImage(img)
-        # Save image in memory and link it to the member
         self.member_photos[person_id] = photo
+
+        # Save as PNG bytes
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="PNG")
+        img_bytes = img_bytes.getvalue()
+        writeprofilepicturetodb(person_id, img_bytes)
 
         self.refresh_list()

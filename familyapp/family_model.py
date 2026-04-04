@@ -9,6 +9,8 @@ from sqlalchemy import Column, Integer, String, ForeignKey
 # Base class for defining tables
 from models.person import Base
 from database import engine
+from models.person_recipe import PersonRecipe
+from models.recipe import Recipe
 
 # Create session to interact with database
 Session = sessionmaker(bind=engine)
@@ -71,9 +73,10 @@ def update_member(person_id, first_name, last_name, gender):
 # Add a favorite food for a specific member
 def assign_favorite_food(person_id, food_name):
 
-    new_food = FavoriteFood(
+    new_food = PersonRecipe(
         person_id=person_id,
-        food_name=food_name
+        recipe_id=food_name,  # Assuming food_name is actually recipe_id
+        is_favorite=True
     )
 
     session.add(new_food) # Insert into DB
@@ -82,19 +85,19 @@ def assign_favorite_food(person_id, food_name):
 
 # Get all favorite foods for a specific member
 def get_favorites_for_person(person_id):
-    return session.query(FavoriteFood).filter(FavoriteFood.person_id == person_id).all()
+    return session.query(PersonRecipe).where(PersonRecipe.person_id == person_id).where(PersonRecipe.is_favorite).all()
 
 # Delete all favorite foods for a member (used before deleting member)
 def delete_favorites_for_person(person_id):
-    session.query(FavoriteFood).filter(
-        FavoriteFood.person_id == person_id
+    session.query(PersonRecipe).filter(
+        PersonRecipe.person_id == person_id
     ).delete()
     session.commit()
 
 # Delete a single favorite food using its ID
 def delete_favorite_by_id(food_id):
 
-    food = session.query(FavoriteFood).filter(FavoriteFood.id == food_id).first()
+    food = session.query(PersonRecipe).filter(PersonRecipe.recipe_id == food_id).first()
 
     if food:
         session.delete(food) # Remove specific favorite
@@ -102,3 +105,19 @@ def delete_favorite_by_id(food_id):
         return True
     
     return False
+
+def get_favorite_by_id(food_id):
+    return session.query(Recipe).filter(Recipe.recipe_id == food_id).first().recipe_name
+    
+def writeprofilepicturetodb(person_id, image_data):
+    person = session.query(Person).filter(Person.person_id == person_id).first()
+
+    if person:
+        person.profile_picture = image_data
+        session.commit()
+        return True
+    
+    return False
+
+def getallrecipes():
+    return session.query(Recipe).all()
