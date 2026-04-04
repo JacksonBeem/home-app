@@ -10,41 +10,32 @@ from tkinter import filedialog
 from PIL import Image, ImageTk
 import io
 from .family_model import get_all_members, add_member, delete_member, update_member
+from banner import TopBanner
 
 # Main UI class for displaying and managing family members
 class FamilyPage(ttk.Frame):
 
     def __init__(self, master, *, on_home):
-        super().__init__(master)
+        from ui_style import STYLE_CONFIG
+        super().__init__(master, padding=16)
         self.on_home = on_home
-        # Store uploaded images for each member
         self.member_photos = {}
+        # self.configure(bg=STYLE_CONFIG["bg_main"])  # Not supported for ttk widgets
         self._build()
         self.refresh_list()
 
     # Builds the full layout: header, buttons, and scrollable member list
     def _build(self):
-        # Top navigation bar (Home button + title)
-        header = ttk.Frame(self)
-        header.pack(side=tk.TOP, fill=tk.X)
+        # Consistent top banner
+        TopBanner(self, title="Family Members", on_home=self.on_home).pack(side=tk.TOP, fill=tk.X)
 
-        style = ttk.Style(self)
-        style.configure("TopNav.TButton", font=("Segoe UI", 12), padding=(10, 6))
-
-        back_btn = ttk.Button(
-            header,
-            text="← Home",
-            style="TopNav.TButton",
-            command=self.on_home
-        )
-        back_btn.pack(side=tk.LEFT)
-
-        title = ttk.Label(header, text="Family Members", style="Title.TLabel")
-        title.pack(side=tk.LEFT, padx=(20, 0))
-        
         # Action buttons for member management and favorite food features
-        buttons = ttk.Frame(self)
+        from ui_style import STYLE_CONFIG
+        buttons = ttk.Frame(self, style="Card.TFrame")
         buttons.pack(side=tk.TOP, pady=20)
+        style = ttk.Style(self)
+        style.configure("Card.TFrame", background=STYLE_CONFIG["bg_panel"], relief="flat", borderwidth=0)
+        style.configure("TButton", font=(STYLE_CONFIG["button_font"], STYLE_CONFIG["button_font_size"]), padding=(10, 6))
 
         add_btn = ttk.Button(
             buttons,
@@ -146,17 +137,17 @@ class FamilyPage(ttk.Frame):
             # Right side: member details and favorite foods
             info_frame = ttk.Frame(card)
             info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
-            # Format member name and basic info
+            # Format member name and basic info with larger font
             name = f"{m.person_id}: {m.first_name} {m.last_name} ({m.gender})"
-            ttk.Label(info_frame, text=name, font=("Segoe UI", 15, "bold")).pack(anchor="w")
-            # Retrieve favorite foods for this member# Retrieve favorite foods for this member
+            ttk.Label(info_frame, text=name, font=("Segoe UI", 18, "bold")).pack(anchor="w", pady=(0, 2))
+            # Retrieve favorite foods for this member
             favorites = get_favorites_for_person(m.person_id)
 
             if favorites:
-                ttk.Label(info_frame, text="Favorites:", font=("Segoe UI", 12, "italic")).pack(anchor="w")
-                # Display numbered list of favorite foods
+                ttk.Label(info_frame, text="Favorites:", font=("Segoe UI", 14, "italic")).pack(anchor="w")
+                # Display numbered list of favorite foods with larger font
                 for i, f in enumerate(favorites, start=1):
-                    ttk.Label(info_frame, text=f"{i}.) {get_favorite_by_id(f.recipe_id)}").pack(anchor="w")
+                    ttk.Label(info_frame, text=f"{i}.) {get_favorite_by_id(f.recipe_id)}", font=("Segoe UI", 13)).pack(anchor="w")
 
     # Handles adding a new member through user input
     def _on_add_click(self):

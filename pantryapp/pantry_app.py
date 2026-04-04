@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Callable, Optional
+from banner import TopBanner
 # from database import init_db_schema
 from .pantry_model import (
     add_item,
@@ -50,13 +51,16 @@ class PantryPage(ttk.Frame):
         on_home: Optional[Callable[[], None]] = None,
         padding: int = 0,  # keep the page tight to fit small screens
     ):
+        from ui_style import STYLE_CONFIG
         super().__init__(master, padding=padding)
         self.on_home = on_home
+        # self.configure(bg=STYLE_CONFIG["bg_main"])  # Not supported for ttk widgets
 
         self.mode = "add"
         self.current_category_filter_id: Optional[int] = None
         self._barcode_by_tree_iid: dict[str, str] = {}
 
+        TopBanner(self, title="Pantry", on_home=self.on_home).pack(side=tk.TOP, fill=tk.X)
         self._setup_style()
         self._create_widgets()
 
@@ -199,36 +203,37 @@ class PantryPage(ttk.Frame):
     # --------- UI ---------
 
     def _create_widgets(self) -> None:
-        # Use grid so the center area expands and bottom stays visible on all screens
-        self.grid_rowconfigure(2, weight=1)   # list/card expands
-        self.grid_columnconfigure(0, weight=1)
+        # Use a main_frame packed into self, and use grid only inside main_frame
+        main_frame = ttk.Frame(self)
+        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        main_frame.grid_rowconfigure(2, weight=1)
+        main_frame.grid_columnconfigure(0, weight=1)
 
         # --------- Top row: Title + Mode ----------
-        top_frame = ttk.Frame(self)
+        top_frame = ttk.Frame(main_frame)
         top_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=(6, 0))
         top_frame.grid_columnconfigure(1, weight=1)
 
-        # Optional Home button (only shown when embedded in the home shell)
-        col = 0
-        if self.on_home is not None:
-            back_btn = ttk.Button(
-                top_frame,
-                text="\u2190 Home",
-                style="TopNav.TButton",
-                command=self.on_home,
-            )
-            back_btn.grid(row=0, column=col, sticky="w", padx=(0, 10))
-            col += 1
+        # col = 0
+        # if self.on_home is not None:
+        #     back_btn = ttk.Button(
+        #         top_frame,
+        #         text="\u2190 Home",
+        #         style="TopNav.TButton",
+        #         command=self.on_home,
+        #     )
+        #     back_btn.grid(row=0, column=col, sticky="w", padx=(0, 10))
+        #     col += 1
 
-        title_label = ttk.Label(top_frame, text="Pantry Inventory", style="Title.TLabel")
-        title_label.grid(row=0, column=col, sticky="w")
-        col += 1
+        # title_label = ttk.Label(top_frame, text="Pantry Inventory", style="Title.TLabel")
+        # title_label.grid(row=0, column=col, sticky="w")
+        # col += 1
 
         self.mode_label = ttk.Label(top_frame, text="", style="Mode.TLabel")
         self.mode_label.grid(row=0, column=2, sticky="e")
 
         # --------- Second row: Categories + Filter ----------
-        nav_frame = ttk.Frame(self)
+        nav_frame = ttk.Frame(main_frame)
         nav_frame.grid(row=1, column=0, sticky="ew", padx=12, pady=(4, 6))
         nav_frame.grid_columnconfigure(3, weight=1)
 
@@ -252,16 +257,18 @@ class PantryPage(ttk.Frame):
         self.filter_label.grid(row=0, column=2, sticky="w", padx=(6, 0))
 
         # --------- Center: Card with list ----------
-        card_frame = ttk.Frame(self, style="Card.TFrame", padding=10)
+        card_frame = ttk.Frame(main_frame, style="Card.TFrame", padding=10)
         card_frame.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 6))
         card_frame.grid_rowconfigure(0, weight=1)
         card_frame.grid_columnconfigure(0, weight=1)
 
+
+        # Use modern Custom.Treeview style for inventory list
         self.tree = ttk.Treeview(
             card_frame,
             columns=("name", "location", "age", "quantity"),
             show="headings",
-            style="Inventory.Treeview",
+            style="Custom.Treeview",
             selectmode="browse",
         )
         self.tree.heading("name", text="Food", anchor="w")
@@ -269,13 +276,13 @@ class PantryPage(ttk.Frame):
         self.tree.heading("age", text="Age", anchor="center")
         self.tree.heading("quantity", text="Qty", anchor="center")
 
-        # Start with sane defaults; we will auto-resize these on window resize
         self.tree.column("name", anchor="w", width=420, stretch=True)
         self.tree.column("location", anchor="center", width=150, stretch=False)
         self.tree.column("age", anchor="center", width=90, stretch=False)
         self.tree.column("quantity", anchor="center", width=70, stretch=False)
 
         self.tree.grid(row=0, column=0, sticky="nsew")
+
 
         scrollbar = ttk.Scrollbar(card_frame, orient="vertical", command=self.tree.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
@@ -284,16 +291,15 @@ class PantryPage(ttk.Frame):
         self.tree.bind("<Double-1>", self.on_item_activated)
         self.tree.bind("<Button-1>", self.on_tree_click, add="+")
 
-        # Auto-size columns to prevent horizontal overflow on small screens
         self.winfo_toplevel().bind("<Configure>", self._on_root_configure, add="+")
 
         # --------- Bottom: Add / Remove big buttons ----------
-        bottom_frame = ttk.Frame(self)
+        bottom_frame = ttk.Frame(main_frame)
         bottom_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(4, 10))
         bottom_frame.grid_columnconfigure(0, weight=1)
         bottom_frame.grid_columnconfigure(1, weight=1)
 
-        self.add_button = ttk.Button(
+        self.add_button = ttk.Button( 
             bottom_frame,
             text="Add Food",
             style="AddBig.TButton",
