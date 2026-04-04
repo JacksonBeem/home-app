@@ -182,8 +182,23 @@ class HomeDashboard(ttk.Frame):
         self._timer_var = tk.StringVar(value="Timer: 00:00:00")
         self._timer_running = False
         self._timer_seconds_left = 0
+        self._family_size_var = tk.StringVar()
+        self._date_var = tk.StringVar()
+        self._update_family_size_and_date()
         self._build()
         self._fetch_weather_async()
+
+    def _update_family_size_and_date(self):
+        import datetime
+        try:
+            from familyapp import family_model
+            members = family_model.get_all_members()
+            size = len(members)
+        except Exception:
+            size = "?"
+        self._family_size_var.set(f"Family size: {size}")
+        today = datetime.date.today().strftime("%B %d, %Y")
+        self._date_var.set(f"Today: {today}")
 
     def _build(self) -> None:
         # Header
@@ -191,6 +206,13 @@ class HomeDashboard(ttk.Frame):
         header.pack(side=tk.TOP, fill=tk.X)
         title = ttk.Label(header, text="Welcome Home", style="HomeTitle.TLabel")
         title.pack(side=tk.LEFT, anchor="w")
+        # Family size and date (top right)
+        info_frame = ttk.Frame(header)
+        info_frame.pack(side=tk.RIGHT, anchor="e")
+        family_label = ttk.Label(info_frame, textvariable=self._family_size_var, style="HomeSub.TLabel")
+        family_label.pack(side=tk.TOP, anchor="e", padx=(0, 8))
+        date_label = ttk.Label(info_frame, textvariable=self._date_var, style="HomeSub.TLabel")
+        date_label.pack(side=tk.TOP, anchor="e", padx=(0, 8))
         subtitle = ttk.Label(header, text="Tap a tile to open a module", style="HomeSub.TLabel")
         subtitle.pack(side=tk.LEFT, anchor="w", padx=(16, 0), pady=(10, 0))
 
@@ -314,6 +336,7 @@ class HomeDashboard(ttk.Frame):
         self._weather_var.set(weather_str)
 
     def refresh_alerts(self):
+        self._update_family_size_and_date()
         """Fetches chores and filters for anything NOT 'Daily'."""
         self.alert_list.delete(0, tk.END)
         try:
