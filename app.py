@@ -8,12 +8,15 @@ The pantry module lives in pantry_app.py and can still be run standalone.
 
 from __future__ import annotations
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, scrolledtext, messagebox
+import threading
 
 # from database import init_db_schema
 from pantryapp.pantry_app import PantryPage
 from choresapp.chores_app import ChoresPage
 from cookingapp.cooking_app import CookingPage
+from assistantapp.openrouter_agent import ask_pantry_assistant
+from assistantapp.speech_to_text import record_and_transcribe
 
 
 class HomeApp(tk.Tk):
@@ -166,6 +169,12 @@ class HomeDashboard(ttk.Frame):
     def __init__(self, master: tk.Misc, *, on_open):
         super().__init__(master)
         self.on_open = on_open
+        self.assistant_output: scrolledtext.ScrolledText | None = None
+        self.assistant_entry: ttk.Entry | None = None
+        self.assistant_send_btn: ttk.Button | None = None
+        self.assistant_mic_btn: ttk.Button | None = None
+        self._mic_busy = False
+        self._mic_request_id = 0
         self._build()
 
     def _build(self) -> None:
@@ -219,6 +228,142 @@ class HomeDashboard(ttk.Frame):
         # Spacer to preserve the empty bottom-right tile area like your sketch
         spacer = ttk.Frame(tiles, width=1)
         spacer.grid(row=2, column=1, padx=14, pady=(14, 0), sticky="nsew")
+
+        # Pantry Assistant Chat
+        assistant = ttk.Frame(tiles_outer, style="Card.TFrame", padding=14)
+        assistant.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(16, 0))
+
+        assistant_title = ttk.Label(
+            assistant,
+            text="Pantry Assistant",
+            style="HomeSub.TLabel",
+        )
+        assistant_title.pack(anchor="w", pady=(0, 8))
+
+        self.assistant_output = scrolledtext.ScrolledText(
+            assistant,
+            wrap=tk.WORD,
+            height=16,
+            state="disabled",
+        )
+        self.assistant_output.pack(fill=tk.BOTH, expand=True)
+
+        entry_row = ttk.Frame(assistant)
+        entry_row.pack(fill=tk.X, pady=(8, 0))
+
+        self.assistant_entry = ttk.Entry(entry_row)
+        self.assistant_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.assistant_entry.bind("<Return>", lambda _e: self._on_assistant_send())
+
+        self.assistant_send_btn = ttk.Button(
+            entry_row,
+            text="Send",
+            command=self._on_assistant_send,
+        )
+        self.assistant_send_btn.pack(side=tk.LEFT, padx=(8, 0))
+
+        self.assistant_mic_btn = ttk.Button(
+            entry_row,
+            text="Mic",
+            command=self._on_assistant_mic,
+        )
+        self.assistant_mic_btn.pack(side=tk.LEFT, padx=(8, 0))
+
+        self._append_chat("Assistant", "Ask what you can cook with your pantry items.")
+
+    def _append_chat(self, role: str, message: str) -> None:
+        if not self.assistant_output:
+            return
+        self.assistant_output.configure(state="normal")
+        self.assistant_output.insert(tk.END, f"{role}: {message}\n\n")
+        self.assistant_output.see(tk.END)
+        self.assistant_output.configure(state="disabled")
+
+    def _on_assistant_send(self) -> None:
+        if not self.assistant_entry or not self.assistant_send_btn:
+            return
+        text = self.assistant_entry.get().strip()
+        if not text:
+            return
+
+        self.assistant_entry.delete(0, tk.END)
+        self._append_chat("You", text)
+        self.assistant_send_btn.configure(state="disabled")
+
+        worker = threading.Thread(target=self._assistant_worker, args=(text,), daemon=True)
+        worker.start()
+
+    def _assistant_worker(self, user_text: str) -> None:
+        reply = ask_pantry_assistant(user_text)
+        self.after(0, lambda: self._finish_assistant_response(reply))
+
+    def _finish_assistant_response(self, reply: str) -> None:
+        self._append_chat("Assistant", reply)
+        if self.assistant_send_btn:
+            self.assistant_send_btn.configure(state="normal")
+
+    def _on_assistant_mic(self) -> None:
+        if self._mic_busy:
+            return
+        self._mic_request_id += 1
+        request_id = self._mic_request_id
+        if self.assistant_mic_btn:
+            self.assistant_mic_btn.configure(state="disabled", text="Listening...")
+        self._mic_busy = True
+        self._append_chat("Assistant", "Listening for 5 seconds...")
+        self.after(6000, lambda rid=request_id: self._maybe_set_transcribing(rid))
+        self.after(90000, lambda rid=request_id: self._maybe_timeout_mic(rid))
+        worker = threading.Thread(target=self._assistant_mic_worker, daemon=True)
+        worker.start()
+
+    def _assistant_mic_worker(self) -> None:
+        request_id = self._mic_request_id
+        try:
+            transcript = record_and_transcribe(duration_seconds=5)
+        except Exception as e:
+            error_text = str(e)
+            self.after(0, lambda rid=request_id, msg=error_text: self._finish_mic_error(rid, msg))
+            return
+        self.after(0, lambda rid=request_id, txt=transcript: self._finish_mic_success(rid, txt))
+
+    def _maybe_set_transcribing(self, request_id: int) -> None:
+        if not self._mic_busy or request_id != self._mic_request_id:
+            return
+        if self.assistant_mic_btn:
+            self.assistant_mic_btn.configure(text="Transcribing...")
+
+    def _maybe_timeout_mic(self, request_id: int) -> None:
+        if not self._mic_busy or request_id != self._mic_request_id:
+            return
+        self._finish_mic_error(
+            request_id,
+            "Speech processing timed out. Try again. The first run may take longer while the model downloads.",
+        )
+
+    def _finish_mic_error(self, request_id: int, error_text: str) -> None:
+        if request_id != self._mic_request_id:
+            return
+        self._mic_busy = False
+        if self.assistant_mic_btn:
+            self.assistant_mic_btn.configure(state="normal", text="Mic")
+        messagebox.showerror("Speech to text error", error_text)
+
+    def _finish_mic_success(self, request_id: int, transcript: str) -> None:
+        if request_id != self._mic_request_id:
+            return
+        self._mic_busy = False
+        if self.assistant_mic_btn:
+            self.assistant_mic_btn.configure(state="normal", text="Mic")
+
+        cleaned = (transcript or "").strip()
+        if not cleaned:
+            self._append_chat("Assistant", "I could not detect speech. Try again.")
+            return
+
+        if self.assistant_entry:
+            self.assistant_entry.delete(0, tk.END)
+            self.assistant_entry.insert(0, cleaned)
+        self._on_assistant_send()
 
 # class ChoresPage(ttk.Frame):
 #     def __init__(self, master: tk.Misc, *, on_open):
